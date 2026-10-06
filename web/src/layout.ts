@@ -4,7 +4,7 @@
 import type { DockviewApi } from "dockview";
 import { PANELS, type PanelDef } from "./panels";
 
-const LS_KEY = "pw.layout.v1";
+const LS_KEY = "pw.layout.v2";
 let api: DockviewApi | null = null;
 
 export function setApi(a: DockviewApi) {
@@ -40,12 +40,24 @@ export function buildDefault(a: DockviewApi) {
     position: { referencePanel: "trackmap", direction: "below" },
   });
   a.addPanel({
+    id: "strategy",
+    component: "strategy",
+    title: "Strategy",
+    position: { referencePanel: "telemetry", direction: "below" },
+  });
+  a.addPanel({
     id: "racecontrol",
     component: "raceControl",
     title: "Race Control",
-    position: { referencePanel: "telemetry", direction: "within" },
+    position: { referencePanel: "strategy", direction: "within" },
   });
-  // Give the timing tower a bit more room.
+  a.addPanel({
+    id: "weather",
+    component: "weather",
+    title: "Weather",
+    position: { referencePanel: "strategy", direction: "within" },
+  });
+  // Focus the timing tower.
   api?.getPanel("timing")?.api.setActive();
 }
 
