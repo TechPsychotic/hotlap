@@ -22,6 +22,8 @@ export interface PanelDef {
   id: string;
   title: string;
   component: string;
+  /** Whether the window is open in a fresh/default layout (default true). */
+  defaultOpen?: boolean;
 }
 
 export const PANELS: PanelDef[] = [
@@ -30,6 +32,7 @@ export const PANELS: PanelDef[] = [
   { id: "telemetry", title: "Telemetry", component: "telemetry" },
   { id: "strategy", title: "Strategy", component: "strategy" },
   { id: "weather", title: "Weather", component: "weather" },
+  { id: "radio", title: "Team Radio", component: "radio", defaultOpen: false },
 ];
 
 const KEY = "pw.windows.v2";
@@ -59,6 +62,8 @@ export function layout(): Record<string, WinRect> {
     telemetry: { x: rightX, y: botY, w: telW, h: botH },
     strategy: { x: sideX, y: botY, w: sideW, h: stratH },
     weather: { x: sideX, y: botY + stratH + g, w: sideW, h: botH - stratH - g },
+    // Closed by default; opens over the lower-middle area.
+    radio: { x: rightX, y: Math.round(botY + botH * 0.1), w: Math.min(420, telW), h: Math.round(botH * 0.8) },
   };
 }
 
@@ -80,7 +85,7 @@ function defaults(): { wins: Record<string, WinState>; topZ: number } {
   const wins: Record<string, WinState> = {};
   let z = 1;
   for (const p of PANELS) {
-    wins[p.id] = { ...rects[p.id], id: p.id, z: z++, open: true, min: false, max: false };
+    wins[p.id] = { ...rects[p.id], id: p.id, z: z++, open: p.defaultOpen ?? true, min: false, max: false };
   }
   return { wins, topZ: PANELS.length };
 }

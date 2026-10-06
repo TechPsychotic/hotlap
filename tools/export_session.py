@@ -34,6 +34,7 @@ STREAM_TOPICS = [
     "ExtrapolatedClock",
     "WeatherData",
     "RaceControlMessages",
+    "TeamRadio",
     "TimingData",
     "TimingAppData",
     "CarData.z",

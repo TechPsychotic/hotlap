@@ -69,6 +69,7 @@ fn apply_session_info(state: &mut SessionState, p: &Value) {
     s.end_date = coerce::str(&p["EndDate"]).or(s.end_date.take());
     s.gmt_offset = coerce::str(&p["GmtOffset"]).or(s.gmt_offset.take());
     s.year = coerce::i64(&p["Year"]).map(|y| y as i32).or(s.year);
+    s.path = coerce::str(&p["Path"]).or(s.path.take());
 }
 
 fn apply_session_data(state: &mut SessionState, p: &Value) {

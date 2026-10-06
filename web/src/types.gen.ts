@@ -212,6 +212,10 @@ export interface SessionInfo {
   gmtOffset?: string | null;
   meetingName?: string | null;
   officialName?: string | null;
+  /**
+   * Archive path under `livetiming.formula1.com/static/`, used to build URLs for assets like team-radio audio clips.
+   */
+  path?: string | null;
   sessionName?: string | null;
   /**
    * `Practice`, `Qualifying`, `Race`, `Sprint`, etc.

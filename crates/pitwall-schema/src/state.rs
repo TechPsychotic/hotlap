@@ -51,6 +51,9 @@ pub struct SessionInfo {
     /// Feed session status: `Inactive`, `Started`, `Finished`, `Finalised`, ...
     pub status: Option<String>,
     pub year: Option<i32>,
+    /// Archive path under `livetiming.formula1.com/static/`, used to build URLs
+    /// for assets like team-radio audio clips.
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
