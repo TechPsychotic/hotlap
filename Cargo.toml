@@ -1,0 +1,58 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/pitwall/pitwall"
+rust-version = "1.80"
+
+[workspace.dependencies]
+# Internal crates
+pitwall-schema = { path = "crates/pitwall-schema" }
+pitwall-core = { path = "crates/pitwall-core" }
+pitwall-signalr = { path = "crates/pitwall-signalr" }
+pitwall-server = { path = "crates/pitwall-server" }
+pitwall-tui = { path = "crates/pitwall-tui" }
+
+# Serialization / schema
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "0.8"
+
+# Async / runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util", "signal"] }
+futures = "0.3"
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+
+# HTTP / server
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+axum = { version = "0.7", features = ["ws"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs", "cors", "trace"] }
+
+# Encoding
+flate2 = "1"
+base64 = "0.22"
+
+# CLI / errors / logging
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Misc
+chrono = { version = "0.4", features = ["serde"] }
+directories = "5"
+
+# TUI
+ratatui = "0.29"
+crossterm = "0.28"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

@@ -1,0 +1,16 @@
+[package]
+name = "pitwall-tui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "ratatui terminal UI for Pitwall."
+
+[dependencies]
+pitwall-schema.workspace = true
+pitwall-core.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+tracing.workspace = true

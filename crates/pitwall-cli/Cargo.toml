@@ -1,0 +1,23 @@
+[package]
+name = "pitwall-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "The `pitwall` command-line entry point."
+
+[[bin]]
+name = "pitwall"
+path = "src/main.rs"
+
+[dependencies]
+pitwall-schema.workspace = true
+pitwall-core.workspace = true
+pitwall-signalr.workspace = true
+pitwall-server.workspace = true
+pitwall-tui.workspace = true
+clap.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

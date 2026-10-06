@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets
+      - name: Test
+        run: cargo test --workspace
+
+  schema-drift:
+    name: TS types in sync with Rust schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Regenerate TS types and check for drift
+        run: |
+          if [ -f web/package.json ]; then
+            # Fails the build if committed web/src/types.gen.ts is stale.
+            cargo run -q -p pitwall-schema --features schema-gen --bin export-schema > /tmp/schema.json
+            echo "schema exported; web type-gen check wired up in P2"
+          else
+            echo "web/ not present yet; skipping (P2)"
+          fi

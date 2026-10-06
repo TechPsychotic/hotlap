@@ -1,0 +1,9 @@
+{
+  "name": "Monaco Grand Prix (synthetic sample)",
+  "year": 2023,
+  "sessionType": "Race",
+  "drivers": ["VER", "HAM"],
+  "durationMs": 4800,
+  "synthetic": true,
+  "note": "Hand-authored smoke-test fixture; not real telemetry."
+}
