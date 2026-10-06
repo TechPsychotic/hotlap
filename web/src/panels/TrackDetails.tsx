@@ -1,26 +1,51 @@
-// Track Details: the circuit map (from position data when available — present
-// for recorded/historical sessions, gated on the live free feed), the current
-// track status/flag, and the full race-control message log, in one window.
+// Track Details: the circuit map (from position data — present on recorded/
+// historical sessions, gated on the live free feed) with live flag-state
+// highlighting, current weather alongside, and the race-control log below.
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore, teamColour } from "../store";
+import type { RaceControlMessage } from "../types.gen";
 
 const VB = 1000;
 const PAD = 60;
 
-function trackDot(status?: string | null): string {
+type FlagKind = "none" | "green" | "yellow" | "double" | "sc" | "vsc" | "red";
+interface FlagState {
+  kind: FlagKind;
+  sector?: number;
+}
+
+const FLAG_LABEL: Record<FlagKind, string> = {
+  none: "Clear",
+  green: "Green",
+  yellow: "Yellow",
+  double: "Double Yellow",
+  sc: "Safety Car",
+  vsc: "Virtual SC",
+  red: "Red Flag",
+};
+
+/** Derive the current flag state from track status + recent race control. */
+function computeFlag(status: string | null | undefined, rc: RaceControlMessage[]): FlagState {
   switch (status) {
-    case "1":
-      return "green";
-    case "2":
+    case "5":
+      return { kind: "red" };
     case "4":
+      return { kind: "sc" };
     case "6":
     case "7":
-      return "yellow";
-    case "5":
-      return "red";
+      return { kind: "vsc" };
+    case "2": {
+      for (let i = rc.length - 1; i >= 0; i--) {
+        const f = (rc[i].flag ?? "").toUpperCase();
+        if (f.includes("DOUBLE YELLOW")) return { kind: "double", sector: rc[i].sector ?? undefined };
+        if (f === "YELLOW") return { kind: "yellow", sector: rc[i].sector ?? undefined };
+        if (f.includes("CLEAR") || f === "GREEN") break;
+      }
+      return { kind: "yellow" };
+    }
     default:
-      return "";
+      return { kind: "none" };
   }
 }
 
@@ -100,19 +125,74 @@ function TrackMapView() {
   );
 }
 
+function WeatherColumn() {
+  const w = useStore((s) => s.state.weather) ?? {};
+  const row = (label: string, value?: number | null, unit = "") => (
+    <div className="tdw-row">
+      <span className="tdw-l">{label}</span>
+      <span className="tdw-v tnum">{value != null ? `${value}${unit}` : "—"}</span>
+    </div>
+  );
+  return (
+    <div className="td-weather">
+      <div className="td-weather-head dim">Weather</div>
+      {row("Air", w.airTemp, "°")}
+      {row("Track", w.trackTemp, "°")}
+      {row("Humidity", w.humidity, "%")}
+      {row("Pressure", w.pressure)}
+      <div className="tdw-row">
+        <span className="tdw-l">Wind</span>
+        <span className="tdw-v tnum">
+          <span className="wx-wind" style={{ transform: `rotate(${w.windDirection ?? 0}deg)` }}>
+            ↑
+          </span>
+          {w.windSpeed ?? "—"}
+        </span>
+      </div>
+      <div className="tdw-row">
+        <span className="tdw-l">Rain</span>
+        <span className={`tdw-v ${w.rainfall ? "blue" : ""}`}>{w.rainfall ? "WET" : "DRY"}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function TrackDetails() {
   const track = useStore((s) => s.state.trackStatus);
   const messages = useStore((s) => s.state.raceControl) ?? [];
   const items = [...messages].reverse();
 
+  const flag = computeFlag(track?.status, messages);
+
+  // Flash green for ~1s when the track returns to green.
+  const [greenFlash, setGreenFlash] = useState(false);
+  const prevStatus = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const s = track?.status;
+    if (prevStatus.current !== undefined && prevStatus.current !== "1" && s === "1") {
+      setGreenFlash(true);
+      const t = setTimeout(() => setGreenFlash(false), 1000);
+      prevStatus.current = s;
+      return () => clearTimeout(t);
+    }
+    prevStatus.current = s;
+  }, [track?.status]);
+
+  const overlayKind: FlagKind = greenFlash ? "green" : flag.kind;
+
   return (
     <div className="panel td">
       <div className="td-status">
-        <span className={`dot ${trackDot(track?.status)}`} />
-        <b>{track?.message ?? "—"}</b>
+        <span className={`flag-chip flag-${overlayKind}`}>{FLAG_LABEL[overlayKind]}</span>
+        {flag.sector != null && <span className="dim">Sector {flag.sector}</span>}
+        <span className="dim td-status-msg">{track?.message ?? ""}</span>
       </div>
-      <div className="td-map">
-        <TrackMapView />
+      <div className="td-top">
+        <div className="td-mapwrap">
+          <TrackMapView />
+          {overlayKind !== "none" && <div className={`flag-overlay flag-${overlayKind}`} />}
+        </div>
+        <WeatherColumn />
       </div>
       <div className="td-rc">
         <div className="td-rc-head dim">Race Control</div>

@@ -2,8 +2,16 @@ import { useEffect, useMemo, useRef } from "react";
 import uPlot from "uplot";
 import { useStore, orderByPosition } from "../store";
 
-const MAX_SAMPLES = 600;
+const MAX_SAMPLES = 900;
 const DRS_ON = new Set([8, 10, 12, 14]);
+
+const C_SPEED = "#4aa8ff";
+const C_THR = "#28d17c";
+const C_BRK = "#e10600";
+
+type Buf = { t: number[]; speed: number[]; thr: number[]; brk: number[] };
+const emptyBuf = (): Buf => ({ t: [], speed: [], thr: [], brk: [] });
+const asData = (b: Buf): uPlot.AlignedData => [b.t, b.speed, b.thr, b.brk];
 
 export default function Telemetry() {
   const state = useStore((s) => s.state);
@@ -18,33 +26,37 @@ export default function Telemetry() {
 
   const plotRef = useRef<HTMLDivElement | null>(null);
   const uplotRef = useRef<uPlot | null>(null);
-  const buf = useRef<{ t: number[]; speed: number[] }>({ t: [], speed: [] });
+  const buf = useRef<Buf>(emptyBuf());
 
   // Create the chart once; keep it sized to the container.
   useEffect(() => {
     if (!plotRef.current) return;
+    const axis = {
+      stroke: "var(--dim)",
+      grid: { stroke: "rgba(255,255,255,0.05)" },
+      ticks: { show: false },
+      font: "10px ui-monospace, monospace",
+    };
     const opts: uPlot.Options = {
       width: plotRef.current.clientWidth || 300,
       height: plotRef.current.clientHeight || 160,
-      padding: [8, 8, 0, 0],
+      padding: [8, 6, 0, 6],
       cursor: { show: true, points: { show: false } },
       legend: { show: false },
-      scales: { x: { time: false }, speed: { range: [0, 360] } },
+      scales: { x: { time: false }, speed: { range: [0, 360] }, pct: { range: [0, 105] } },
       axes: [
-        { stroke: "var(--dim)", grid: { stroke: "rgba(255,255,255,0.05)" }, ticks: { show: false } },
-        {
-          scale: "speed",
-          stroke: "var(--dim)",
-          grid: { stroke: "rgba(255,255,255,0.05)" },
-          ticks: { show: false },
-        },
+        { ...axis },
+        { ...axis, scale: "speed", size: 34 },
+        { ...axis, scale: "pct", side: 1, size: 30 },
       ],
       series: [
         {},
-        { scale: "speed", stroke: "#4aa8ff", width: 1.75, label: "Speed" },
+        { scale: "speed", stroke: C_SPEED, width: 1.75, label: "Speed" },
+        { scale: "pct", stroke: C_THR, width: 1.5, label: "Throttle" },
+        { scale: "pct", stroke: C_BRK, width: 1.5, label: "Brake" },
       ],
     };
-    const u = new uPlot(opts, [[], []], plotRef.current);
+    const u = new uPlot(opts, asData(emptyBuf()), plotRef.current);
     uplotRef.current = u;
     const ro = new ResizeObserver(() => {
       if (plotRef.current) {
@@ -61,23 +73,26 @@ export default function Telemetry() {
 
   // Reset the rolling buffer when the focused driver changes.
   useEffect(() => {
-    buf.current = { t: [], speed: [] };
-    uplotRef.current?.setData([[], []]);
+    buf.current = emptyBuf();
+    uplotRef.current?.setData(asData(buf.current));
   }, [num]);
 
   // Append a sample whenever a new telemetry frame arrives.
   useEffect(() => {
     if (!car || car.offsetMs == null || car.speed == null) return;
     const b = buf.current;
-    const last = b.t[b.t.length - 1];
-    if (last === car.offsetMs) return;
+    if (b.t[b.t.length - 1] === car.offsetMs / 1000) return;
     b.t.push(car.offsetMs / 1000);
     b.speed.push(car.speed);
+    b.thr.push(car.throttle ?? 0);
+    b.brk.push(car.brake ?? 0);
     if (b.t.length > MAX_SAMPLES) {
       b.t.shift();
       b.speed.shift();
+      b.thr.shift();
+      b.brk.shift();
     }
-    uplotRef.current?.setData([b.t, b.speed]);
+    uplotRef.current?.setData(asData(b));
   }, [car]);
 
   const drs = car?.drs != null && DRS_ON.has(car.drs);
@@ -85,11 +100,7 @@ export default function Telemetry() {
   const brake = car?.brake ?? 0;
 
   const options = useMemo(
-    () =>
-      order.map((n) => ({
-        n,
-        label: state.drivers?.[n]?.tla ?? n,
-      })),
+    () => order.map((n) => ({ n, label: state.drivers?.[n]?.tla ?? n })),
     [order, state.drivers],
   );
 
@@ -123,6 +134,11 @@ export default function Telemetry() {
         </div>
       </div>
 
+      <div className="tel-legend">
+        <span style={{ color: C_SPEED }}>● Speed</span>
+        <span style={{ color: C_THR }}>● Throttle</span>
+        <span style={{ color: C_BRK }}>● Brake</span>
+      </div>
       <div ref={plotRef} className="tel-plot" />
 
       <div className="tel-meters">
