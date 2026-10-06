@@ -1,0 +1,130 @@
+# Pitwall — TODO / next-session roadmap
+
+Feature requests captured 2026-10-07 for the next working session. Nothing here
+is implemented yet. Grouped by area, with data sources, likely code locations,
+approach, and open questions so it can be executed directly.
+
+## Where the project stands (context for next session)
+
+- Branch `feat/core-pipeline` (not pushed). Commits: P0 scaffold → P1 core
+  pipeline → P2 web GUI → polish → **window manager + real data** → quali polish.
+- **Core (Rust)**: `crates/pitwall-{schema,core,signalr,server,tui,cli}`. Pipeline =
+  source → `parser` → `engine` (state + RFC7386 merge-patch broadcast) → axum WS/REST.
+  Replay clock with play/pause/seek/speed. 22 tests green.
+- **Web (`web/`)**: React + TS, **free-floating window manager** (react-rnd,
+  `src/windows.ts` + `src/components/WindowManager.tsx`), zustand store
+  (`src/store.ts`, applies merge patches, keeps a position `trail`). Panels in
+  `src/panels/`: TimingTower, Telemetry (uPlot speed trace), TrackDetails (map +
+  status + race control), Strategy, Weather. Types generated from Rust schema
+  (`src/types.gen.ts`, `npm run gen:types`).
+- **Data**: real sessions via `tools/export_session.py` (pulls F1 archived
+  `.jsonStream` from `livetiming.formula1.com/static/...`). Default fixture
+  `fixtures/monaco-2023-quali/`. `fixtures/sample/` is the tiny test fixture.
+- Run: `cd web && npm run build`, then `cargo run -p pitwall-cli -- replay fixtures/monaco-2023-quali/`.
+  Stop a running core: `pkill -f 'pitwall replay'`.
+- Still unbuilt from the original plan: **P3 TUI**, **P4 live ingest**, **P5
+  `pitwall historical` as a first-class command** (fold `export_session.py` into Rust).
+
+---
+
+## 1. Telemetry graphs — throttle & braking, multi-driver compare
+
+- **Add throttle + brake traces** to the Telemetry window (today it only plots
+  speed). Data already in state: `car[num].throttle`, `.brake` (`CarTelemetry`).
+  Extend the rolling buffer in `web/src/panels/Telemetry.tsx` to also buffer
+  throttle/brake; render as a second uPlot (0–100 scale) or stacked panels, or a
+  shared uPlot with multiple y-scales. Consider adding gear/RPM too.
+- **Compare with other drivers**: overlay 2–3 drivers' speed/throttle/brake for
+  the current lap.
+  - Need per-driver channel history (buffer multiple drivers, not just focus).
+  - Alignment: by **lap distance** is ideal but we have no distance channel —
+    options: integrate speed over time to approximate distance, or align by
+    time-into-lap (detect lap start from `TimingData.NumberOfLaps` increment /
+    sector 1 start). Start with time-into-current-lap alignment; note it's
+    approximate.
+  - UI: a compare mode with a driver multi-select; colour traces by team.
+- Open Q: live (streaming) compare vs lap-over-lap compare. Start with live
+  current-lap overlay.
+
+## 2. Timing tower — live lap-time delta between all drivers
+
+- Add a **delta** indicator per row: how each driver's pace compares live
+  (gaining/losing vs the car ahead or vs leader), and/or last-lap delta to their
+  own best / to the session best.
+- Data: track a short history of `gapToLeader` / `intervalToAhead` (race) or
+  best-lap deltas (quali). Compute trend (▲/▼ + tenths) over the last N updates.
+- Code: `web/src/panels/TimingTower.tsx`; may need the store to keep a small
+  rolling history of gaps per driver (like `trail`), or compute from successive
+  patches. Colour green when gaining, red when losing.
+
+## 3. Prediction window (analytics + SLM narrative) — BIG, phase it
+
+New **Prediction** window. Split into a Rust analytics module (deterministic
+math, exposed via REST/WS) + an SLM layer (natural language) + the web panel.
+
+- **Race podium (P1/P2/P3)**: project finishing order from current positions,
+  recent lap pace, gaps, remaining laps, pit-stop status, tyre age/deg. Simple
+  model first (extrapolate gaps + mandatory stop deltas), refine later.
+- **Quali cut-off (Q1/Q2)**: predict the elimination line (P15 in Q1, P10 in Q2)
+  from current best laps + improvement trend of drivers still on track / yet to
+  set a time. Show predicted cut-off time and who's provisionally out.
+- **Tyre strategy** (extend the Strategy window): predicted optimal strategies,
+  **undercut / overcut** chances per driver pair (gap vs pit-loss vs tyre-deg
+  model + track position). Needs a pit-loss constant per circuit + a deg model.
+- **Natural-language predictions via a small LM (SLM)**: feed the structured
+  predictions + race state into an SLM to produce readable summaries, including
+  **edge cases: weather change, SC, VSC**. 
+  - Open Q: which SLM and how to host — local (llama.cpp / Ollama, a small
+    Qwen/Llama/Gemma) for offline, or the Claude API. Decide hosting; keep the
+    numeric predictions deterministic and use the LM only for phrasing/reasoning
+    over the computed facts (avoid hallucinated numbers).
+  - Core: add `crates/pitwall-core/src/predict.rs` (deterministic) + an optional
+    predictions feed/endpoint; LM integration likely a separate service/crate.
+- Big feature — build in stages: (a) quali cut-off (simplest, deterministic),
+  (b) race podium projection, (c) undercut/overcut, (d) SLM narrative.
+
+## 4. Track Details — weather inline + flag highlighting + sectors
+
+- **Layout**: restructure Track Details to **map on the left, weather on the
+  right** (move/duplicate the Weather content in), with race control below.
+  (The standalone Weather window can stay as an option, or be removed — decide.)
+- **Flag-state map highlighting** driven by `TrackStatus.status` + sector info
+  from `RaceControlMessages` (Flag + Scope=Sector + Sector N; distinguish
+  `YELLOW` vs `DOUBLE YELLOW`). Visual states on the map:
+  | Condition | Visual |
+  |-----------|--------|
+  | Red flag (status 5) | gentle **blinking red** overlay |
+  | Single yellow (RC Flag YELLOW) | **steady yellow**, + show which sector |
+  | Double yellow (RC Flag DOUBLE YELLOW) | gentle **blinking yellow** |
+  | Safety Car (status 4) | **steady orange-yellow** |
+  | Virtual SC (status 6) | gentle **blinking orange-yellow** |
+  | Back to green (status 1) | flash **green for ~1s** then clear |
+  - Implement as a CSS overlay on the map container with keyframe blink
+    animations; a small state machine maps TrackStatus/RC → visual state.
+  - Sector-specific tinting on the map geometry needs marshal-sector → map-region
+    mapping, which we don't have. **Start with**: whole-map tint + a text badge
+    ("Yellow — Sector 7"). Per-sector map regions = later (needs marshal sector
+    position data / track segmentation).
+
+## 5. Team radio
+
+- Show **team radio** clips. We already parse `TeamRadioClip { utc, racingNumber,
+  path }` (`TeamRadio` topic). Add a radio feed (new window or inside Track
+  Details / Race Control) listing clips with driver + timestamp + a play button.
+- Audio URL: `https://livetiming.formula1.com/static/<session-path>/<path>` — the
+  session path is in `meta.json` (`path`) for exported sessions. For live it's the
+  current session base. Play via an HTML `<audio>` element.
+- Open Q: expose the session base path to the web (add to SessionInfo/state or a
+  REST endpoint) so the client can build audio URLs. For replay/historical the
+  clips exist on the F1 static host; confirm CORS (may need the core to proxy the
+  audio).
+
+---
+
+## Suggested order next session
+1. Quick wins: throttle/brake graphs (#1 first half), team radio feed (#5),
+   weather-into-Track-Details + flag highlighting whole-map tint (#4).
+2. Timing-tower live delta (#2).
+3. Multi-driver telemetry compare (#1 second half).
+4. Prediction window in stages (#3): quali cut-off → podium → undercut/overcut →
+   SLM narrative.
