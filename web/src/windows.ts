@@ -1,5 +1,5 @@
 // Free-floating window manager state: overlapping, movable, resizable windows
-// with z-order, minimize, open/close, and geometry persisted per viewer.
+// with z-order, minimize, maximize, open/close, and geometry persisted per viewer.
 
 import { create } from "zustand";
 
@@ -15,27 +15,52 @@ export interface WinState extends WinRect {
   z: number;
   open: boolean;
   min: boolean;
+  max: boolean;
 }
 
 export interface PanelDef {
   id: string;
   title: string;
   component: string;
-  default: WinRect;
 }
 
-/** The available windows and their default geometry (tuned for ~1680px wide). */
 export const PANELS: PanelDef[] = [
-  { id: "timing", title: "Timing Tower", component: "timingTower", default: { x: 12, y: 12, w: 600, h: 640 } },
-  { id: "trackdetails", title: "Track Details", component: "trackDetails", default: { x: 624, y: 12, w: 736, h: 430 } },
-  { id: "telemetry", title: "Telemetry", component: "telemetry", default: { x: 624, y: 452, w: 736, h: 380 } },
-  { id: "strategy", title: "Strategy", component: "strategy", default: { x: 1372, y: 12, w: 300, h: 500 } },
-  { id: "weather", title: "Weather", component: "weather", default: { x: 1372, y: 524, w: 300, h: 308 } },
+  { id: "timing", title: "Timing Tower", component: "timingTower" },
+  { id: "trackdetails", title: "Track Details", component: "trackDetails" },
+  { id: "telemetry", title: "Telemetry", component: "telemetry" },
+  { id: "strategy", title: "Strategy", component: "strategy" },
+  { id: "weather", title: "Weather", component: "weather" },
 ];
 
-const KEY = "pw.windows.v1";
+const KEY = "pw.windows.v2";
 const MIN_W = 240;
 const MIN_H = 140;
+export const TASKBAR_H = 34;
+const TOPBAR_H = 46;
+
+/** A sensible tiled layout computed from the current viewport. */
+export function layout(): Record<string, WinRect> {
+  const g = 10;
+  const W = Math.max(window.innerWidth || 1680, 760);
+  const H = Math.max((window.innerHeight || 900) - TOPBAR_H - TASKBAR_H, 420);
+  const leftW = Math.round(W * 0.37);
+  const rightX = leftW + 2 * g;
+  const rightW = W - rightX - g;
+  const tdH = Math.round(H * 0.52);
+  const botY = g + tdH + g;
+  const botH = H - botY - g;
+  const telW = Math.round(rightW * 0.62);
+  const sideX = rightX + telW + g;
+  const sideW = rightW - telW - g;
+  const stratH = Math.round(botH * 0.58);
+  return {
+    timing: { x: g, y: g, w: leftW, h: H - g },
+    trackdetails: { x: rightX, y: g, w: rightW, h: tdH },
+    telemetry: { x: rightX, y: botY, w: telW, h: botH },
+    strategy: { x: sideX, y: botY, w: sideW, h: stratH },
+    weather: { x: sideX, y: botY + stratH + g, w: sideW, h: botH - stratH - g },
+  };
+}
 
 interface WinStore {
   wins: Record<string, WinState>;
@@ -45,15 +70,17 @@ interface WinStore {
   open: (id: string) => void;
   close: (id: string) => void;
   toggleMin: (id: string) => void;
+  toggleMax: (id: string) => void;
   toggle: (id: string) => void;
   reset: () => void;
 }
 
 function defaults(): { wins: Record<string, WinState>; topZ: number } {
+  const rects = layout();
   const wins: Record<string, WinState> = {};
   let z = 1;
   for (const p of PANELS) {
-    wins[p.id] = { ...p.default, id: p.id, z: z++, open: true, min: false };
+    wins[p.id] = { ...rects[p.id], id: p.id, z: z++, open: true, min: false, max: false };
   }
   return { wins, topZ: PANELS.length };
 }
@@ -83,45 +110,26 @@ function persist(state: { wins: Record<string, WinState>; topZ: number }) {
 }
 
 export const useWindows = create<WinStore>((set, get) => {
-  const save = () => persist(get());
+  const patch = (id: string, w: Partial<WinState>, raise = false) =>
+    set((s) => {
+      const topZ = raise ? s.topZ + 1 : s.topZ;
+      const next = {
+        ...s,
+        topZ,
+        wins: { ...s.wins, [id]: { ...s.wins[id], ...w, ...(raise ? { z: topZ } : {}) } },
+      };
+      persist(next);
+      return next;
+    });
+
   return {
     ...load(),
-    focus: (id) =>
-      set((s) => {
-        const topZ = s.topZ + 1;
-        const next = { ...s, topZ, wins: { ...s.wins, [id]: { ...s.wins[id], z: topZ } } };
-        persist(next);
-        return next;
-      }),
-    setRect: (id, rect) =>
-      set((s) => {
-        const next = { ...s, wins: { ...s.wins, [id]: { ...s.wins[id], ...rect } } };
-        persist(next);
-        return next;
-      }),
-    open: (id) =>
-      set((s) => {
-        const topZ = s.topZ + 1;
-        const next = {
-          ...s,
-          topZ,
-          wins: { ...s.wins, [id]: { ...s.wins[id], open: true, min: false, z: topZ } },
-        };
-        persist(next);
-        return next;
-      }),
-    close: (id) =>
-      set((s) => {
-        const next = { ...s, wins: { ...s.wins, [id]: { ...s.wins[id], open: false } } };
-        persist(next);
-        return next;
-      }),
-    toggleMin: (id) =>
-      set((s) => {
-        const next = { ...s, wins: { ...s.wins, [id]: { ...s.wins[id], min: !s.wins[id].min } } };
-        persist(next);
-        return next;
-      }),
+    focus: (id) => patch(id, {}, true),
+    setRect: (id, rect) => patch(id, rect),
+    open: (id) => patch(id, { open: true, min: false }, true),
+    close: (id) => patch(id, { open: false }),
+    toggleMin: (id) => patch(id, { min: !get().wins[id].min }),
+    toggleMax: (id) => patch(id, { max: !get().wins[id].max }, true),
     toggle: (id) => {
       const w = get().wins[id];
       if (!w.open || w.min) get().open(id);
@@ -130,7 +138,7 @@ export const useWindows = create<WinStore>((set, get) => {
     reset: () => {
       const d = defaults();
       set(d);
-      save();
+      persist(d);
     },
   };
 });

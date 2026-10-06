@@ -8,6 +8,20 @@ function lapClass(l?: LapTime | null): string {
   return "";
 }
 
+/** Parse "M:SS.mmm" or "SS.mmm" to milliseconds. */
+function lapMs(v?: string | null): number | null {
+  if (!v) return null;
+  const m = v.match(/^(?:(\d+):)?(\d+)\.(\d+)$/);
+  if (!m) return null;
+  const min = m[1] ? +m[1] : 0;
+  const frac = (m[3] + "000").slice(0, 3);
+  return (min * 60 + +m[2]) * 1000 + +frac;
+}
+
+function fmtDelta(ms: number): string {
+  return `+${(ms / 1000).toFixed(3)}`;
+}
+
 // Feed mini-sector status codes -> colour.
 function segColor(status?: number | null): string {
   switch (status) {
@@ -54,6 +68,16 @@ export default function TimingTower() {
   const setFocus = useStore((s) => s.setFocus);
   const order = orderByPosition(state);
 
+  // Best-lap times drive a quali-style "gap to pole" when the feed doesn't send
+  // race gaps (it doesn't in qualifying).
+  const bestMs: Record<string, number | null> = {};
+  let pole: number | null = null;
+  for (const num of order) {
+    const ms = lapMs(state.timing?.[num]?.bestLapTime?.value);
+    bestMs[num] = ms;
+    if (ms != null && (pole == null || ms < pole)) pole = ms;
+  }
+
   return (
     <div className="panel tt">
       <div className="panel-scroll">
@@ -73,13 +97,23 @@ export default function TimingTower() {
             </tr>
           </thead>
           <tbody>
-            {order.map((num) => {
+            {order.map((num, i) => {
               const d = state.drivers?.[num] ?? {};
               const t = state.timing?.[num] ?? {};
               const stints = state.stints?.[num] ?? [];
               const tyre = stints[stints.length - 1]?.compound ?? undefined;
               const retired = t.retired || t.stopped;
               const sectors = t.sectors ?? [];
+
+              // Gap / interval: prefer the feed's values; fall back to best-lap deltas.
+              const my = bestMs[num];
+              const prev = i > 0 ? bestMs[order[i - 1]] : null;
+              const gap =
+                t.gapToLeader ||
+                (my != null && pole != null ? (my === pole ? "" : fmtDelta(my - pole)) : "");
+              const intv =
+                t.intervalToAhead ||
+                (my != null && prev != null ? fmtDelta(my - prev) : "");
               return (
                 <tr
                   key={num}
@@ -92,9 +126,9 @@ export default function TimingTower() {
                     <b>{d.tla ?? num}</b>
                   </td>
                   <td className={`tnum ${t.inPit ? "yellow" : ""}`}>
-                    {t.inPit ? "IN PIT" : (t.gapToLeader ?? "")}
+                    {t.inPit ? "IN PIT" : gap}
                   </td>
-                  <td className="tnum muted">{t.intervalToAhead ?? ""}</td>
+                  <td className="tnum muted">{intv}</td>
                   <SectorCell sector={sectors[0]} />
                   <SectorCell sector={sectors[1]} />
                   <SectorCell sector={sectors[2]} />
