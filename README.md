@@ -33,15 +33,36 @@ you record replays through the exact same code that rendered it live.
 | `pitwall-tui` | ratatui terminal UI |
 | `pitwall-cli` | The `pitwall` binary |
 
-## Quick start (dev)
+## Quick start
 
 ```sh
-# Replay the bundled sample session and serve the API + web GUI
-cargo run -p pitwall-cli -- replay fixtures/sample/ --serve
+# 1. Build the web GUI once (outputs web/dist, which the core serves)
+cd web && npm install && npm run build && cd ..
 
-# Terminal UI against the same sample
-cargo run -p pitwall-cli -- tui --replay fixtures/sample/
+# 2. Replay the bundled sample session; opens the dashboard in your browser
+cargo run -p pitwall-cli -- replay fixtures/sample/
 ```
+
+Open <http://127.0.0.1:8080>. Drag, resize, tab, and float the panels; the layout
+is remembered. Use the transport bar to play / pause / seek / change speed.
+
+### Web dev loop
+
+```sh
+# Terminal 1 — core serving the API + WebSocket
+cargo run -p pitwall-cli -- replay fixtures/sample/ --no-open
+
+# Terminal 2 — Vite dev server (HMR), proxies /api + /ws to the core
+cd web && npm run dev     # http://127.0.0.1:5173
+```
+
+The web's TypeScript types are generated from the Rust schema (no drift):
+
+```sh
+cd web && npm run gen:types   # regenerates src/types.gen.ts
+```
+
+> The terminal UI (`pitwall tui`) lands in the P3 milestone.
 
 ## Data source & legal
 

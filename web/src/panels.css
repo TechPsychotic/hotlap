@@ -1,0 +1,107 @@
+/* App layout */
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.dock-wrap {
+  flex: 1;
+  min-height: 0;
+  padding: var(--gap);
+}
+/* Let dockview fill its wrapper. */
+.dock-wrap .dv-dockview {
+  height: 100%;
+}
+
+/* Top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.brand {
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.brand-mark { color: var(--accent); font-size: 15px; }
+.session { font-size: 12px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spacer { flex: 1; }
+.panel-menu { display: flex; gap: 4px; flex-wrap: wrap; }
+.panel-menu button { font-size: 11px; padding: 3px 8px; }
+.badge.conn { text-transform: capitalize; }
+
+/* Transport */
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+}
+.transport .play { font-size: 12px; width: 30px; text-align: center; color: var(--fg); }
+.transport .seek { width: 220px; }
+.transport .pos { min-width: 38px; text-align: right; }
+.transport .dur { min-width: 38px; }
+.transport .src { text-transform: capitalize; }
+
+/* Empty-state text shared by panels */
+.empty { padding: 20px; color: var(--dim); font-size: 12px; text-align: center; }
+
+/* Timing tower */
+.tt-table { width: 100%; border-collapse: collapse; }
+.tt-table th, .tt-table td { padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tt-table th { position: sticky; top: 0; background: var(--panel); z-index: 1;
+  color: var(--dim); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; text-align: left; }
+.tt-table th.r, .tt-table td.r { text-align: right; }
+.tt-table th.c, .tt-table td.c { text-align: center; }
+.tt-table tbody tr { cursor: pointer; }
+.tt-table tbody tr:hover { background: var(--panel-2); }
+.tt-table tr.focus { background: color-mix(in srgb, var(--blue) 14%, transparent); }
+.tt-table tr.out { opacity: 0.45; }
+.tt-table .drv { display: flex; align-items: center; gap: 8px; }
+.tt-table .drv .bar { width: 3px; height: 15px; border-radius: 2px; }
+.tt-table .tyre { font-weight: 800; }
+
+/* Track map */
+.trackmap { width: 100%; height: 100%; max-height: 100%; display: block; }
+.tm-label { fill: var(--fg); font: 600 22px var(--mono); }
+
+/* Telemetry */
+.tel { gap: 0; }
+.tel-head { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.tel-name { font-size: 12px; color: var(--fg-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge.drs-on { color: var(--green); border-color: var(--green); }
+.tel-readouts { display: flex; gap: 6px; padding: 10px; }
+.tel-readouts .ro { flex: 1; text-align: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 4px; }
+.tel-readouts .ro-v { font-size: 26px; font-weight: 700; line-height: 1; }
+.tel-readouts .ro-l { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+.tel-plot { flex: 1; min-height: 120px; padding: 6px 10px; }
+.tel-meters { padding: 8px 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+.meter { display: flex; align-items: center; gap: 8px; }
+.meter-l { width: 30px; font-size: 11px; }
+.meter-v { width: 30px; text-align: right; font-size: 11px; }
+.meter-track { flex: 1; height: 8px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.meter-fill { height: 100%; transition: width 0.1s linear; }
+
+/* uPlot: let it inherit our fonts/colors */
+.u-legend { display: none; }
+.tel-plot .uplot, .tel-plot .u-wrap { width: 100% !important; }
+
+/* Race control */
+.rc-row { display: flex; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.rc-flag { width: 4px; border-radius: 2px; flex: none; }
+.rc-body { flex: 1; min-width: 0; }
+.rc-msg { font-size: 12px; line-height: 1.35; }
+.rc-meta { display: flex; gap: 10px; font-size: 10px; margin-top: 3px; text-transform: uppercase; letter-spacing: .4px; }

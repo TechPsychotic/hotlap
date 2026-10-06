@@ -1,0 +1,117 @@
+/* Pitwall design tokens. Everything reads from these, so a theme is just a set
+   of custom-property overrides. Dark is the default; [data-theme="light"] flips
+   it. The dockview chrome is themed via its own JS theme object in app.tsx. */
+
+:root {
+  --bg: #0a0d12;
+  --bg-2: #0e131a;
+  --panel: #121820;
+  --panel-2: #0f141b;
+  --line: #1e2631;
+  --line-2: #2a3542;
+  --fg: #e8ebf0;
+  --fg-dim: #9aa4b2;
+  --dim: #69727f;
+  --accent: #e10600; /* use sparingly */
+  --accent-soft: #ff3b35;
+  --green: #28d17c;
+  --purple: #b57bff;
+  --yellow: #ffd23f;
+  --blue: #4aa8ff;
+  --cyan: #3fd8d0;
+
+  --radius: 8px;
+  --radius-sm: 5px;
+  --gap: 10px;
+
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f6f9;
+  --bg-2: #eef1f5;
+  --panel: #ffffff;
+  --panel-2: #f7f9fc;
+  --line: #e2e7ee;
+  --line-2: #d2dae4;
+  --fg: #141922;
+  --fg-dim: #4a5566;
+  --dim: #7b8698;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbars */
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* Shared panel primitives */
+.panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  color: var(--fg);
+  overflow: hidden;
+}
+.panel-scroll { overflow: auto; flex: 1; }
+
+.tnum { font-variant-numeric: tabular-nums; font-family: var(--mono); }
+.dim { color: var(--dim); }
+.muted { color: var(--fg-dim); }
+.pb { color: var(--green); }
+.ob { color: var(--purple); }
+.yellow { color: var(--yellow); }
+
+/* Buttons / inputs */
+button, select {
+  font: inherit;
+  color: var(--fg);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+button:hover, select:hover { border-color: var(--accent-soft); }
+button:active { transform: translateY(0.5px); }
+button.ghost { background: transparent; border-color: transparent; }
+button.ghost:hover { background: var(--panel-2); border-color: var(--line); }
+
+input[type="range"] { accent-color: var(--accent); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); display: inline-block; }
+.dot.green { background: var(--green); }
+.dot.yellow { background: var(--yellow); }
+.dot.red { background: var(--accent); }
+.dot.blue { background: var(--blue); }

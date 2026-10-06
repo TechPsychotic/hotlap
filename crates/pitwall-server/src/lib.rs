@@ -9,6 +9,7 @@
 //! - `GET /*` — the web GUI (embedded in P2); until then a small built-in dev page.
 
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
@@ -22,6 +23,7 @@ use pitwall_core::Engine;
 use pitwall_schema::{ClientMessage, ReplayControl, ServerMessage};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::mpsc;
+use tower_http::services::{ServeDir, ServeFile};
 
 /// Default address the local server binds to.
 pub const DEFAULT_ADDR: &str = "127.0.0.1:8080";
@@ -40,14 +42,44 @@ pub fn router(engine: Arc<Engine>, replay_ctrl: Option<mpsc::Sender<ReplayContro
         engine,
         replay_ctrl,
     };
-    Router::new()
+    let api = Router::new()
         .route("/ws", get(ws_handler))
         .route("/api/health", get(|| async { "ok" }))
         .route("/api/state", get(state_handler))
         .route("/api/replay/status", get(replay_status_handler))
         .route("/api/replay/control", post(replay_control_handler))
-        .fallback(get(dev_index))
-        .with_state(state)
+        .with_state(state);
+
+    // Serve the built web GUI if we can find it; otherwise fall back to the
+    // built-in dev page. Unmatched routes serve index.html for SPA routing.
+    match find_web_dir() {
+        Some(dir) => {
+            let index = dir.join("index.html");
+            let serve = ServeDir::new(&dir).not_found_service(ServeFile::new(index));
+            tracing::info!(dir = %dir.display(), "serving web GUI from disk");
+            api.fallback_service(serve)
+        }
+        None => {
+            tracing::info!("web GUI build not found; serving built-in dev page");
+            api.fallback(get(dev_index))
+        }
+    }
+}
+
+/// Locate the web GUI build. Checks `$PITWALL_WEB_DIR`, then the workspace
+/// `web/dist` relative to this crate (so `cargo run` finds a fresh build).
+fn find_web_dir() -> Option<PathBuf> {
+    if let Ok(dir) = std::env::var("PITWALL_WEB_DIR") {
+        let p = PathBuf::from(dir);
+        if p.join("index.html").is_file() {
+            return Some(p);
+        }
+    }
+    let workspace = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../web/dist");
+    if workspace.join("index.html").is_file() {
+        return Some(workspace);
+    }
+    None
 }
 
 /// Serve until the process is shut down.

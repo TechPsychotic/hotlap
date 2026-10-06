@@ -26,19 +26,26 @@ jobs:
       - name: Test
         run: cargo test --workspace
 
-  schema-drift:
-    name: TS types in sync with Rust schema
+  web:
+    name: Web (type-gen drift, typecheck, build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Regenerate TS types and check for drift
-        run: |
-          if [ -f web/package.json ]; then
-            # Fails the build if committed web/src/types.gen.ts is stale.
-            cargo run -q -p pitwall-schema --features schema-gen --bin export-schema > /tmp/schema.json
-            echo "schema exported; web type-gen check wired up in P2"
-          else
-            echo "web/ not present yet; skipping (P2)"
-          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install web deps
+        working-directory: web
+        run: npm ci
+      - name: Regenerate TS types from the Rust schema
+        working-directory: web
+        run: npm run gen:types
+      - name: Fail if committed types are stale
+        run: git diff --exit-code web/src/types.gen.ts
+      - name: Typecheck + build
+        working-directory: web
+        run: npm run build
