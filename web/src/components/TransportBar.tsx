@@ -25,6 +25,9 @@ export default function TransportBar() {
   const dur = replay.durationMs ?? 0;
   const pos = scrub ?? replay.positionMs;
   const ratio = dur > 0 ? pos / dur : 0;
+  // Always include the live speed so the selector reflects reality even if the
+  // speed was set outside the preset list.
+  const speeds = Array.from(new Set([...SPEEDS, replay.speed])).sort((a, b) => a - b);
 
   return (
     <div className="transport">
@@ -59,7 +62,7 @@ export default function TransportBar() {
         onChange={(e) => sendControl({ action: "setSpeed", speed: Number(e.target.value) })}
         title="Playback speed"
       >
-        {SPEEDS.map((s) => (
+        {speeds.map((s) => (
           <option key={s} value={s}>
             {s}×
           </option>

@@ -4,7 +4,7 @@
 import type { DockviewApi } from "dockview";
 import { PANELS, type PanelDef } from "./panels";
 
-const LS_KEY = "pw.layout.v2";
+const LS_KEY = "pw.layout.v3";
 let api: DockviewApi | null = null;
 
 export function setApi(a: DockviewApi) {
@@ -26,39 +26,30 @@ export function openPanel(def: PanelDef) {
  *  control grouped on the right. */
 export function buildDefault(a: DockviewApi) {
   a.clear();
+  // Left: timing tower. Right column: Track Map on top, a tabbed detail group
+  // (Telemetry / Strategy / Weather / Race Control) below it.
   a.addPanel({ id: "timing", component: "timingTower", title: "Timing Tower" });
-  a.addPanel({
-    id: "trackmap",
-    component: "trackMap",
-    title: "Track Map",
-    position: { referencePanel: "timing", direction: "right" },
-  });
   a.addPanel({
     id: "telemetry",
     component: "telemetry",
     title: "Telemetry",
-    position: { referencePanel: "trackmap", direction: "below" },
+    position: { referencePanel: "timing", direction: "right" },
   });
   a.addPanel({
-    id: "strategy",
-    component: "strategy",
-    title: "Strategy",
-    position: { referencePanel: "telemetry", direction: "below" },
+    id: "trackmap",
+    component: "trackMap",
+    title: "Track Map",
+    position: { referencePanel: "telemetry", direction: "above" },
   });
-  a.addPanel({
-    id: "racecontrol",
-    component: "raceControl",
-    title: "Race Control",
-    position: { referencePanel: "strategy", direction: "within" },
-  });
-  a.addPanel({
-    id: "weather",
-    component: "weather",
-    title: "Weather",
-    position: { referencePanel: "strategy", direction: "within" },
-  });
-  // Focus the timing tower.
-  api?.getPanel("timing")?.api.setActive();
+  for (const [id, component, title] of [
+    ["strategy", "strategy", "Strategy"],
+    ["weather", "weather", "Weather"],
+    ["racecontrol", "raceControl", "Race Control"],
+  ] as const) {
+    a.addPanel({ id, component, title, position: { referencePanel: "telemetry", direction: "within" } });
+  }
+  a.getPanel("telemetry")?.api.setActive();
+  a.getPanel("timing")?.api.setActive();
 }
 
 export function resetLayout() {
