@@ -1,34 +1,15 @@
-import type { FC } from "react";
-import type { IDockviewPanelProps } from "dockview";
+import type { ComponentType } from "react";
 import TimingTower from "./TimingTower";
-import TrackMap from "./TrackMap";
 import Telemetry from "./Telemetry";
-import RaceControl from "./RaceControl";
-import Weather from "./Weather";
 import Strategy from "./Strategy";
+import Weather from "./Weather";
+import TrackDetails from "./TrackDetails";
 
-/** Component registry handed to dockview. */
-export const components: Record<string, FC<IDockviewPanelProps>> = {
-  timingTower: () => <TimingTower />,
-  trackMap: () => <TrackMap />,
-  telemetry: () => <Telemetry />,
-  raceControl: () => <RaceControl />,
-  weather: () => <Weather />,
-  strategy: () => <Strategy />,
+/** Maps a window's `component` name to its React component. */
+export const COMPONENTS: Record<string, ComponentType> = {
+  timingTower: TimingTower,
+  telemetry: Telemetry,
+  strategy: Strategy,
+  weather: Weather,
+  trackDetails: TrackDetails,
 };
-
-/** Metadata for the default layout and the "add panel" menu. */
-export interface PanelDef {
-  id: string;
-  component: string;
-  title: string;
-}
-
-export const PANELS: PanelDef[] = [
-  { id: "timing", component: "timingTower", title: "Timing Tower" },
-  { id: "trackmap", component: "trackMap", title: "Track Map" },
-  { id: "telemetry", component: "telemetry", title: "Telemetry" },
-  { id: "racecontrol", component: "raceControl", title: "Race Control" },
-  { id: "weather", component: "weather", title: "Weather" },
-  { id: "strategy", component: "strategy", title: "Strategy" },
-];

@@ -1,5 +1,5 @@
 import { useStore } from "../store";
-import { ALL_PANELS, openPanel, resetLayout } from "../layout";
+import { useWindows } from "../windows";
 import TransportBar from "./TransportBar";
 
 function trackDot(status?: string | null): string {
@@ -35,6 +35,7 @@ export default function TopBar() {
   const track = useStore((s) => s.state.trackStatus);
   const clock = useStore((s) => s.state.clock);
   const lap = useStore((s) => s.state.lapCount);
+  const resetLayout = useWindows((s) => s.reset);
 
   const title = [session?.meetingName, session?.sessionName].filter(Boolean).join("  ·  ");
 
@@ -65,13 +66,8 @@ export default function TopBar() {
       <div className="spacer" />
 
       <div className="panel-menu">
-        {ALL_PANELS.map((p) => (
-          <button key={p.id} className="ghost" title={`Open ${p.title}`} onClick={() => openPanel(p)}>
-            {p.title}
-          </button>
-        ))}
-        <button className="ghost" title="Reset layout" onClick={resetLayout}>
-          ⟳
+        <button className="ghost" title="Reset window layout" onClick={resetLayout}>
+          ⟳ Layout
         </button>
         <button className="ghost" title="Toggle theme" onClick={toggleTheme}>
           ◐

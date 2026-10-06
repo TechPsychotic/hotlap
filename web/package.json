@@ -10,9 +10,9 @@
     "gen:types": "cargo run -q -p pitwall-schema --features schema-gen --bin export-schema > schema.json && json2ts -i schema.json -o src/types.gen.ts && rm schema.json"
   },
   "dependencies": {
-    "dockview": "^4.9.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-rnd": "^10.5.3",
     "uplot": "^1.6.32",
     "zustand": "^5.0.8"
   },

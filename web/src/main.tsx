@@ -4,7 +4,6 @@ import App from "./app";
 import { connect } from "./store";
 
 import "./theme.css";
-import "dockview/dist/styles/dockview.css";
 import "uplot/dist/uPlot.min.css";
 import "./panels.css";
 

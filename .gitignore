@@ -18,3 +18,7 @@ web/.vite
 *.jsonl
 !fixtures/**/*.jsonl
 /data
+
+# F1 data: raw download caches and ad-hoc fetches
+fixtures/**/_cache/
+/data
