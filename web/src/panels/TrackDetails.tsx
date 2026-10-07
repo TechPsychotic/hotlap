@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore, teamColour } from "../store";
 import type { XY } from "../store";
 import type { RaceControlMessage } from "../types.gen";
+import { loadCircuits, matchCircuit, type LngLat } from "../circuits";
 
 const VB = 1000;
 const PAD = 70;
@@ -65,7 +66,7 @@ function bounds(pts: XY[]) {
   return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
 }
 
-function TrackMapView({ view3d }: { view3d: boolean }) {
+function TrackMapView({ view3d, circuit }: { view3d: boolean; circuit: LngLat[] | null }) {
   const positions = useStore((s) => s.state.position);
   const drivers = useStore((s) => s.state.drivers);
   const trail = useStore((s) => s.trail);
@@ -80,7 +81,18 @@ function TrackMapView({ view3d }: { view3d: boolean }) {
       .map(([num, p]) => ({ num, x: p.x as number, y: p.y as number }));
   }, [positions]);
 
-  const b = useMemo(() => bounds(path.length > 10 ? path : trail.length ? trail : live), [path, trail, live]);
+  const hasPositions = live.length > 0 || path.length > 0 || trail.length > 0;
+  // Fall back to the static circuit outline when there's no position data
+  // (e.g. live feeds with gated positions).
+  const useStatic = !hasPositions && !!circuit && circuit.length > 2;
+
+  const outline: XY[] = useMemo(() => {
+    if (useStatic) return circuit!.map(([lng, lat]) => ({ x: lng, y: lat }));
+    if (path.length > 10) return path;
+    return trail.length ? trail : live;
+  }, [useStatic, circuit, path, trail, live]);
+
+  const b = useMemo(() => bounds(outline), [outline]);
 
   const project = (x: number, y: number) => {
     if (!b) return { cx: VB / 2, cy: VB / 2 };
@@ -92,9 +104,14 @@ function TrackMapView({ view3d }: { view3d: boolean }) {
   };
 
   const d = useMemo(() => {
-    if (path.length < 10) return "";
+    const pts: XY[] | null = useStatic
+      ? circuit!.map(([lng, lat]) => ({ x: lng, y: lat }))
+      : path.length >= 10
+        ? path
+        : null;
+    if (!pts) return "";
     return (
-      path
+      pts
         .map((p, i) => {
           const { cx, cy } = project(p.x, p.y);
           return `${i === 0 ? "M" : "L"}${cx.toFixed(1)} ${cy.toFixed(1)}`;
@@ -102,10 +119,10 @@ function TrackMapView({ view3d }: { view3d: boolean }) {
         .join(" ") + " Z"
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, b]);
+  }, [useStatic, circuit, path, b]);
 
-  if (live.length === 0 && path.length === 0 && trail.length === 0) {
-    return <div className="empty">No position data (live positions require F1 TV; available on recorded sessions).</div>;
+  if (!hasPositions && !useStatic) {
+    return <div className="empty">No position data, and no circuit outline matched for this session.</div>;
   }
 
   return (
@@ -176,6 +193,22 @@ export default function TrackDetails() {
   const items = [...messages].reverse();
   const [view3d, setView3d] = useState(false);
 
+  // Match a static circuit outline for this session (used when positions are
+  // unavailable). Select primitives so the effect only reruns on real changes.
+  const circuitName = useStore((s) => s.state.session?.circuit);
+  const country = useStore((s) => s.state.session?.country);
+  const meetingName = useStore((s) => s.state.session?.meetingName);
+  const [circuit, setCircuit] = useState<LngLat[] | null>(null);
+  useEffect(() => {
+    let ok = true;
+    loadCircuits().then((f) => {
+      if (ok) setCircuit(matchCircuit(f, { circuit: circuitName, country, meetingName }));
+    });
+    return () => {
+      ok = false;
+    };
+  }, [circuitName, country, meetingName]);
+
   const flag = computeFlag(track?.status, messages);
   const [greenFlash, setGreenFlash] = useState(false);
   const prevStatus = useRef<string | null | undefined>(undefined);
@@ -209,7 +242,7 @@ export default function TrackDetails() {
       </div>
       <div className="td-main">
         <div className="td-mapwrap">
-          <TrackMapView view3d={view3d} />
+          <TrackMapView view3d={view3d} circuit={circuit} />
           {overlayKind !== "none" && <div className={`flag-overlay flag-${overlayKind}`} />}
         </div>
         <div className="td-side">

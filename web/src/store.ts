@@ -79,15 +79,18 @@ function resetTrail() {
 let trackRef: string | null = null;
 let trackPts: XY[] = [];
 
+function hasPos(p?: { x?: number | null; y?: number | null }): boolean {
+  return !!p && p.x != null && p.y != null && (p.x !== 0 || p.y !== 0);
+}
+
 function accumulateTrackPath(state: SessionState): boolean {
   const pos = state.position ?? {};
   if (!trackRef) {
-    for (const [num, p] of Object.entries(pos)) {
-      if (p.x != null && p.y != null && (p.x !== 0 || p.y !== 0)) {
-        trackRef = num;
-        break;
-      }
-    }
+    // Prefer the leader (runs clean racing laps) so the traced line is a full,
+    // tidy lap rather than an out/in-lap around a pit stop.
+    const timing = state.timing ?? {};
+    const leader = Object.keys(timing).find((n) => timing[n]?.position === 1 && hasPos(pos[n]));
+    trackRef = leader ?? Object.keys(pos).find((n) => hasPos(pos[n])) ?? null;
   }
   const p = trackRef ? pos[trackRef] : undefined;
   if (!p || p.x == null || p.y == null || (p.x === 0 && p.y === 0)) return false;
