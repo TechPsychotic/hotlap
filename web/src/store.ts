@@ -17,6 +17,15 @@ export interface XY {
   y: number;
 }
 
+/** A driver's running lap delta at the latest completed sector of the current
+ *  lap, vs the session-best cumulative time to that sector. */
+export interface SectorDelta {
+  /** 0-based index of the latest completed sector (0=S1, 1=S2, 2=lap). */
+  sector: number;
+  /** Signed delta in milliseconds (negative = up on the benchmark). */
+  deltaMs: number;
+}
+
 interface Store {
   conn: ConnState;
   /** The normalized session state; replaced immutably on every patch. */
@@ -25,6 +34,8 @@ interface Store {
   /** Accumulated unique track positions (the circuit outline), maintained in
    *  the store so it survives panels being hidden/unmounted. */
   trail: XY[];
+  /** Live sector delta per driver (racing number), updated as sectors complete. */
+  sectorDeltas: Record<string, SectorDelta>;
   /** The driver (racing number) focused by detail panels. */
   focus: string | null;
   setFocus: (num: string | null) => void;
@@ -62,27 +73,112 @@ function resetTrail() {
   trailPts = [];
 }
 
+/** Parse "M:SS.mmm" or "SS.mmm" to milliseconds. */
+export function lapMs(v?: string | null): number | null {
+  if (!v) return null;
+  const m = v.match(/^(?:(\d+):)?(\d+)\.(\d+)$/);
+  if (!m) return null;
+  const min = m[1] ? +m[1] : 0;
+  return (min * 60 + +m[2]) * 1000 + +(m[3] + "000").slice(0, 3);
+}
+
+// Live sector tracking: per-driver current-lap sector times + session-best
+// cumulative times, maintained outside React.
+let secPrev: Record<string, (string | null)[]> = {}; // last feed sector strings
+let secLive: Record<string, (number | null)[]> = {}; // current-lap sector ms
+let bestCum: (number | null)[] = [null, null, null]; // best S1, best S1+S2, best lap
+
+function resetSectors() {
+  secPrev = {};
+  secLive = {};
+  bestCum = [null, null, null];
+}
+
+/** Fold sector completions into the live-delta tracker; returns the per-driver
+ *  deltas when anything changed, else null. */
+function updateSectors(state: SessionState): Record<string, SectorDelta> | null {
+  const timing = state.timing ?? {};
+  let changed = false;
+  for (const [num, t] of Object.entries(timing)) {
+    const secs = t.sectors ?? [];
+    const prev = secPrev[num] ?? [null, null, null];
+    const live = secLive[num] ?? [null, null, null];
+    for (let i = 0; i < 3; i++) {
+      const v = secs[i]?.value ?? null;
+      if (!v || v === prev[i]) continue;
+      prev[i] = v;
+      const ms = lapMs(v);
+      if (i === 0) {
+        // A new S1 marks a new lap: reset the live cumulative.
+        live[0] = ms;
+        live[1] = null;
+        live[2] = null;
+      } else {
+        live[i] = ms;
+      }
+      if (ms != null) {
+        if (i === 0 && (bestCum[0] == null || ms < bestCum[0]!)) bestCum[0] = ms;
+        if (i === 1 && live[0] != null) {
+          const c = live[0] + ms;
+          if (bestCum[1] == null || c < bestCum[1]!) bestCum[1] = c;
+        }
+        if (i === 2 && live[0] != null && live[1] != null) {
+          const c = live[0] + live[1] + ms;
+          if (bestCum[2] == null || c < bestCum[2]!) bestCum[2] = c;
+        }
+      }
+      changed = true;
+    }
+    secPrev[num] = prev;
+    secLive[num] = live;
+  }
+  if (!changed) return null;
+
+  const deltas: Record<string, SectorDelta> = {};
+  for (const num of Object.keys(secLive)) {
+    const live = secLive[num];
+    let k = -1;
+    for (let i = 0; i < 3; i++) {
+      if (live[i] != null) k = i;
+      else break; // only contiguous completed sectors from S1
+    }
+    if (k >= 0 && bestCum[k] != null) {
+      let cum = 0;
+      for (let i = 0; i <= k; i++) cum += live[i]!;
+      deltas[num] = { sector: k, deltaMs: cum - bestCum[k]! };
+    }
+  }
+  return deltas;
+}
+
 export const useStore = create<Store>((set, get) => ({
   conn: "connecting",
   state: EMPTY_STATE,
   replay: null,
   trail: [],
+  sectorDeltas: {},
   focus: null,
   setFocus: (num) => set({ focus: num }),
   sendControl: (control) => socket?.send(JSON.stringify({ type: "replayControl", control })),
   _ingest: (msg) => {
     switch (msg.type) {
       case "snapshot": {
-        // A snapshot means a fresh/reseeked session: restart the trail.
+        // A snapshot means a fresh/reseeked session: restart derived state.
         resetTrail();
+        resetSectors();
         accumulateTrail(msg.state);
-        set({ state: msg.state, trail: [...trailPts] });
+        set({ state: msg.state, trail: [...trailPts], sectorDeltas: updateSectors(msg.state) ?? {} });
         break;
       }
       case "update": {
         const next = mergePatch(get().state, msg.patch);
-        const changed = accumulateTrail(next);
-        set(changed ? { state: next, trail: [...trailPts] } : { state: next });
+        const trailChanged = accumulateTrail(next);
+        const deltas = updateSectors(next);
+        set({
+          state: next,
+          ...(trailChanged ? { trail: [...trailPts] } : {}),
+          ...(deltas ? { sectorDeltas: deltas } : {}),
+        });
         break;
       }
       case "replayStatus":

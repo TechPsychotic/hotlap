@@ -134,6 +134,11 @@
 .tt-table .drv .bar { width: 3px; height: 15px; border-radius: 2px; }
 .tt-table .tyre { font-weight: 800; }
 
+/* Timing tower: live sector delta column */
+.tt-table td.sd { white-space: nowrap; font-size: 11px; }
+.sd-tag { display: inline-block; font-size: 9px; color: var(--dim); background: var(--panel-2); border-radius: 3px; padding: 0 3px; margin-right: 4px; }
+.lose { color: var(--accent); }
+
 /* Timing tower: mini-sector segment strips */
 .tt-table td.sec { padding: 2px 6px; }
 .seg-strip { display: flex; gap: 1px; margin-bottom: 2px; }

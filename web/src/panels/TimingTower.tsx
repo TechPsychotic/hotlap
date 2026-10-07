@@ -1,4 +1,4 @@
-import { useStore, orderByPosition, teamColour } from "../store";
+import { useStore, orderByPosition, teamColour, lapMs } from "../store";
 import type { LapTime, Sector } from "../types.gen";
 
 function lapClass(l?: LapTime | null): string {
@@ -8,19 +8,15 @@ function lapClass(l?: LapTime | null): string {
   return "";
 }
 
-/** Parse "M:SS.mmm" or "SS.mmm" to milliseconds. */
-function lapMs(v?: string | null): number | null {
-  if (!v) return null;
-  const m = v.match(/^(?:(\d+):)?(\d+)\.(\d+)$/);
-  if (!m) return null;
-  const min = m[1] ? +m[1] : 0;
-  const frac = (m[3] + "000").slice(0, 3);
-  return (min * 60 + +m[2]) * 1000 + +frac;
-}
-
 function fmtDelta(ms: number): string {
   return `+${(ms / 1000).toFixed(3)}`;
 }
+
+function fmtSigned(ms: number): string {
+  return `${ms >= 0 ? "+" : ""}${(ms / 1000).toFixed(3)}`;
+}
+
+const SECTOR_TAG = ["S1", "S2", "Lap"];
 
 // Feed mini-sector status codes -> colour.
 function segColor(status?: number | null): string {
@@ -66,6 +62,7 @@ export default function TimingTower() {
   const state = useStore((s) => s.state);
   const focus = useStore((s) => s.focus);
   const setFocus = useStore((s) => s.setFocus);
+  const sectorDeltas = useStore((s) => s.sectorDeltas);
   const order = orderByPosition(state);
 
   // Best-lap times drive a quali-style "gap to pole" when the feed doesn't send
@@ -92,6 +89,7 @@ export default function TimingTower() {
               <th>S2</th>
               <th>S3</th>
               <th>Last</th>
+              <th>Δ</th>
               <th className="c">Tyre</th>
               <th className="r">Lap</th>
             </tr>
@@ -133,6 +131,19 @@ export default function TimingTower() {
                   <SectorCell sector={sectors[1]} />
                   <SectorCell sector={sectors[2]} />
                   <td className={`tnum ${lapClass(t.lastLapTime)}`}>{t.lastLapTime?.value ?? ""}</td>
+                  <td className="sd">
+                    {(() => {
+                      const sd = sectorDeltas[num];
+                      if (!sd) return null;
+                      const cls = sd.deltaMs <= 0 ? "pb" : sd.deltaMs < 300 ? "yellow" : "lose";
+                      return (
+                        <span className="tnum">
+                          <span className="sd-tag">{SECTOR_TAG[sd.sector]}</span>
+                          <span className={cls}>{fmtSigned(sd.deltaMs)}</span>
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="c">
                     {tyre ? (
                       <span className="tyre" style={{ color: TYRE[tyre] ?? "var(--fg)" }}>
