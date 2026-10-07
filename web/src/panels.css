@@ -159,7 +159,7 @@
 .sec-t { font-size: 11px; display: block; text-align: left; }
 
 /* Track map */
-.trackmap { width: 100%; height: 100%; max-height: 100%; display: block; }
+.trackmap { width: 100%; height: 100%; display: block; }
 .tm-track { fill: var(--line-2); opacity: 0.5; }
 .tm-line { fill: none; stroke: var(--line-2); stroke-width: 10; stroke-linejoin: round; stroke-linecap: round; }
 .tm-label { fill: var(--fg); font: 700 22px var(--mono); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; }
@@ -170,17 +170,17 @@
 .td-view { display: flex; gap: 2px; flex: none; }
 .td-view button { font-size: 10px; padding: 2px 8px; }
 .td-view button.on { border-color: var(--accent-soft); color: var(--fg); background: var(--panel); }
-.td-main { flex: 1; min-height: 0; display: flex; }
-.td-mapwrap { flex: 1; position: relative; display: grid; place-items: center; padding: 6px; min-width: 0; overflow: hidden; }
-.td-map-inner { width: 100%; height: 100%; display: grid; place-items: center; transition: transform 0.35s ease; }
-.td-map-inner.is-3d { transform: perspective(900px) rotateX(56deg) scale(1.08); }
-.td-side { width: 190px; flex: none; border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
-.td-rc { flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+/* Inline layout: map | weather | race control (race control gets the most room). */
+.td-main { flex: 1; min-height: 0; display: flex; flex-direction: row; }
+.td-mapwrap { flex: 0 0 40%; position: relative; display: flex; align-items: center; justify-content: center; padding: 6px; min-width: 0; min-height: 0; overflow: hidden; }
+.td-map-inner { position: absolute; inset: 6px; display: flex; align-items: center; justify-content: center; transition: transform 0.35s ease; }
+.td-map-inner.is-3d { transform: perspective(1100px) rotateX(55deg) scale(0.96); }
+.td-rc { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line); }
 .td-rc-head { padding: 6px 10px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-.td-rc-list { overflow: auto; flex: 1; }
+.td-rc-list { overflow: auto; flex: 1; padding-right: 2px; }
 
 /* Weather column inside Track Details */
-.td-weather { flex: none; padding: 7px 10px; }
+.td-weather { flex: 0 0 128px; padding: 7px 10px; border-left: 1px solid var(--line); overflow: auto; }
 .td-weather-head { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
 .tdw-row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 .tdw-l { color: var(--dim); font-size: 11px; }
@@ -245,8 +245,10 @@
 .tel-readouts .ro-l { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
 .tel-compare { display: flex; gap: 4px; align-items: center; padding: 4px 10px; flex: none; font-size: 11px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: none; }
 .tel-compare::-webkit-scrollbar { display: none; }
-.cmp-chip { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--dim); flex: none; }
+.cmp-chip { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--dim); flex: none; cursor: pointer; }
 .cmp-chip.on { color: var(--fg); background: var(--panel); border-width: 2px; }
+.tel-compare select { font-size: 10px; padding: 1px 4px; flex: none; max-width: 120px; }
+.cmp-add { font-size: 10px; padding: 2px 8px; flex: none; }
 .tel-legend { display: flex; gap: 12px; padding: 3px 12px 0; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; flex: none; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
 .tel-legend::-webkit-scrollbar { display: none; }
 .tel-plot { flex: 1 1 0; min-height: 48px; padding: 2px 8px 0; }

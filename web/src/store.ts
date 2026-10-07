@@ -108,6 +108,120 @@ function resetTrackPath() {
   trackPts = [];
 }
 
+// ---- per-lap telemetry history ------------------------------------------
+// Telemetry samples are bucketed into per-driver, per-lap traces so the
+// Telemetry panel can show the *current* lap and overlay any completed lap
+// (a specific lap, the driver's best, or the session's fastest).
+
+export interface LapTrace {
+  /** Lap number this trace belongs to (the driver's Nth lap). */
+  lap: number;
+  /** Seconds since the lap's start, per sample. */
+  t: number[];
+  speed: (number | null)[];
+  thr: number[];
+  brk: number[];
+  /** Lap time in ms (set once the lap completes), else null. */
+  timeMs: number | null;
+  complete: boolean;
+}
+
+const TEL_CAP = 800; // max samples retained per lap
+
+let telLaps: Record<string, Map<number, LapTrace>> = {}; // completed laps per driver
+let telCur: Record<string, LapTrace> = {}; // in-progress lap per driver
+let telLapNum: Record<string, number> = {}; // last seen numberOfLaps
+let telLapStart: Record<string, number> = {}; // offsetMs at current lap start
+let telLastOff: Record<string, number> = {}; // last processed CarData offset
+
+function newTrace(lap: number): LapTrace {
+  return { lap, t: [], speed: [], thr: [], brk: [], timeMs: null, complete: false };
+}
+
+function resetTelemetry() {
+  telLaps = {};
+  telCur = {};
+  telLapNum = {};
+  telLapStart = {};
+  telLastOff = {};
+}
+
+function accumulateTelemetry(state: SessionState) {
+  const cars = state.car ?? {};
+  const timing = state.timing ?? {};
+  for (const [n, c] of Object.entries(cars)) {
+    if (c.offsetMs == null) continue;
+    if (telLastOff[n] === c.offsetMs) continue; // de-dupe repeated frames
+    telLastOff[n] = c.offsetMs;
+    const laps = timing[n]?.numberOfLaps ?? 0;
+
+    if (telLapNum[n] === undefined) {
+      telLapNum[n] = laps;
+      telLapStart[n] = c.offsetMs;
+      telCur[n] = newTrace(laps + 1);
+    } else if (laps > telLapNum[n]) {
+      // The car crossed the line: finalize the lap just run, start the next.
+      const done = telCur[n];
+      if (done && done.t.length > 3) {
+        done.lap = laps;
+        done.complete = true;
+        done.timeMs = lapMs(timing[n]?.lastLapTime?.value ?? null);
+        (telLaps[n] ??= new Map()).set(laps, done);
+      }
+      telLapNum[n] = laps;
+      telLapStart[n] = c.offsetMs;
+      telCur[n] = newTrace(laps + 1);
+    }
+
+    const cur = telCur[n];
+    if (cur && cur.t.length < TEL_CAP) {
+      const ts = (c.offsetMs - telLapStart[n]) / 1000;
+      if (cur.t[cur.t.length - 1] !== ts) {
+        cur.t.push(ts);
+        cur.speed.push(c.speed ?? null);
+        cur.thr.push(c.throttle ?? 0);
+        cur.brk.push(c.brake ?? 0);
+      }
+    }
+  }
+}
+
+/** The driver's current (in-progress) lap trace. */
+export function getCurrentLap(n: string): LapTrace | null {
+  return telCur[n] ?? null;
+}
+
+/** A specific completed lap trace for a driver. */
+export function getLapTrace(n: string, lap: number): LapTrace | null {
+  return telLaps[n]?.get(lap) ?? null;
+}
+
+/** Completed laps for a driver, ascending by lap number. */
+export function getLapList(n: string): LapTrace[] {
+  const m = telLaps[n];
+  return m ? [...m.values()].sort((a, b) => a.lap - b.lap) : [];
+}
+
+/** The driver's own fastest completed lap. */
+export function getBestLap(n: string): LapTrace | null {
+  let best: LapTrace | null = null;
+  for (const l of telLaps[n]?.values() ?? []) {
+    if (l.timeMs != null && (!best || l.timeMs < best.timeMs!)) best = l;
+  }
+  return best;
+}
+
+/** The session's fastest completed lap across all drivers. */
+export function getFastestLap(): { driver: string; trace: LapTrace } | null {
+  let best: { driver: string; trace: LapTrace } | null = null;
+  for (const [n, m] of Object.entries(telLaps)) {
+    for (const l of m.values()) {
+      if (l.timeMs != null && (!best || l.timeMs < best.trace.timeMs!)) best = { driver: n, trace: l };
+    }
+  }
+  return best;
+}
+
 /** Parse "M:SS.mmm" or "SS.mmm" to milliseconds. */
 export function lapMs(v?: string | null): number | null {
   if (!v) return null;
@@ -203,8 +317,10 @@ export const useStore = create<Store>((set, get) => ({
         resetTrail();
         resetTrackPath();
         resetSectors();
+        resetTelemetry();
         accumulateTrail(msg.state);
         accumulateTrackPath(msg.state);
+        accumulateTelemetry(msg.state);
         set({
           state: msg.state,
           trail: [...trailPts],
@@ -217,6 +333,7 @@ export const useStore = create<Store>((set, get) => ({
         const next = mergePatch(get().state, msg.patch);
         const trailChanged = accumulateTrail(next);
         const pathChanged = accumulateTrackPath(next);
+        accumulateTelemetry(next);
         const deltas = updateSectors(next);
         set({
           state: next,

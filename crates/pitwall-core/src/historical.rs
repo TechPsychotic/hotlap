@@ -149,6 +149,9 @@ pub async fn fetch(year: i32, gp: &str, session: &str, opts: &FetchOptions) -> R
         Err(e) => tracing::debug!(error = %e, "no commentary"),
     }
 
+    // Split bundled CarData frames into per-sample messages so telemetry
+    // traces stream at the feed's native ~5Hz rather than ~1Hz per message.
+    let mut msgs = crate::expand::expand_telemetry(msgs);
     msgs.sort_by_key(|m| m.offset_ms);
     let duration_ms = msgs.last().map(|m| m.offset_ms).unwrap_or(0);
     Ok(Fetched {

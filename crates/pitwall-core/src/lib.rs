@@ -8,6 +8,7 @@
 pub mod decode;
 pub mod engine;
 pub mod events;
+pub mod expand;
 pub mod historical;
 pub mod merge;
 pub mod parser;

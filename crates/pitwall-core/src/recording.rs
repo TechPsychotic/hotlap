@@ -42,6 +42,9 @@ impl Recording {
                 .map_err(|e| Error::Decode(format!("{}:{}: {e}", file.display(), i + 1)))?;
             messages.push(msg);
         }
+        // Densify telemetry: split bundled CarData frames into per-sample
+        // messages (see `expand::expand_telemetry`).
+        let mut messages = crate::expand::expand_telemetry(messages);
         messages.sort_by_key(|m| m.offset_ms);
         let duration_ms = messages.last().map(|m| m.offset_ms).unwrap_or(0);
         Ok(Self {
