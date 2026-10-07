@@ -81,7 +81,16 @@ The web's TypeScript types are generated from the Rust schema (no drift):
 cd web && npm run gen:types   # regenerates src/types.gen.ts
 ```
 
-> The terminal UI (`pitwall tui`) lands in the P3 milestone.
+### Terminal UI
+
+A full ratatui dashboard against the same engine — no browser needed:
+
+```sh
+cargo run -p pitwall-cli -- tui --replay fixtures/monaco-2023-quali/
+```
+
+Keys: `space` play/pause · `←/→` seek ±10s · `[`/`]` slower/faster · `↑/↓` focus
+driver · `q` quit.
 
 ## Data source & legal
 

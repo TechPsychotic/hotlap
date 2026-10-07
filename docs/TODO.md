@@ -5,6 +5,13 @@ code locations, approach, and open questions so it can be executed directly.
 
 ## Progress (2026-10-07, same day)
 
+- [x] **P3 — TUI** (`pitwall tui --replay <dir>`): ratatui dashboard sharing the
+  engine in-process — timing tower (team colours, lap/sector colours, tyres),
+  track-map braille canvas, telemetry (gauges), conditions, race control, and
+  keyboard transport (play/pause/seek/speed/driver-focus). *Later: resizable
+  panels/workspaces, `--live`/`--connect`, Sixel track map, prediction pane.*
+
+
 - [x] **#1 Telemetry throttle/brake graphs** — Speed+Throttle+Brake traces.
 - [x] **#1b Multi-driver telemetry compare** — overlay up to 3 drivers' speed
   (time-aligned on the primary's cadence). *Later: distance-aligned lap compare.*

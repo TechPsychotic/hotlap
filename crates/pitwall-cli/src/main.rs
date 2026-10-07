@@ -127,8 +127,7 @@ async fn main() -> Result<()> {
             live,
             connect,
         } => {
-            tracing::info!(?replay, live, ?connect, "tui: not yet implemented (P3)");
-            not_implemented("tui");
+            run_tui(replay, live, connect).await?;
         }
     }
 
@@ -168,6 +167,27 @@ async fn run_replay(path: PathBuf, serve: ServeArgs, speed: f64, tui: bool) -> R
         // Headless: run the replay to completion.
         handle.join().await;
     }
+    Ok(())
+}
+
+/// Launch the terminal UI. Currently drives an in-process replay.
+async fn run_tui(replay: Option<PathBuf>, live: bool, connect: Option<String>) -> Result<()> {
+    if live || connect.is_some() {
+        eprintln!("pitwall: `tui --live/--connect` not implemented yet; use `--replay <dir>`.");
+        return Ok(());
+    }
+    let Some(path) = replay else {
+        eprintln!("pitwall: `tui` currently requires `--replay <dir>`.");
+        return Ok(());
+    };
+    let recording = Recording::load(&path)
+        .with_context(|| format!("loading recording from {}", path.display()))?;
+    let engine = Engine::new(4096);
+    let handle =
+        pitwall_core::spawn_replay(engine.clone(), recording, SourceKind::Replay, 1.0, true);
+    let ctrl = handle.control();
+    let engine2 = engine.clone();
+    tokio::task::spawn_blocking(move || pitwall_tui::run(engine2, Some(ctrl))).await??;
     Ok(())
 }
 
