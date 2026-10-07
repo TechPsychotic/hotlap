@@ -14,13 +14,14 @@ code locations, approach, and open questions so it can be executed directly.
 - [x] **Track Details compact** — map | (weather + race control) inline.
 - [x] **SVG track map** (clean line from an ordered reference-car path) + **2D/3D**
   toggle (CSS perspective).
-- [ ] **Static circuit SVGs** for truly position-less sessions (live 2025+ is
-  gated; historical 2025/2026 still ship Position.z, so the line works there).
-  Plan: bundle a circuit-outline dataset (e.g. bacinger/f1-circuits GeoJSON),
-  match by circuit name, project + draw; use when no position data is present.
-- [ ] Polish: reference-car line can be partial/spiky (pick a car doing full
-  racing laps, or build an ordered outline from all cars); commentary for
-  `pitwall live` (fetch ContentStreams on connect).
+- [x] **Static circuit SVGs** — f1-circuits GeoJSON bundled (web/public), matched
+  by circuit name (stopword-filtered), drawn in Track Details when no position
+  data is present; 2D/3D toggle applies.
+- [x] **Cleaner traced line** — reference car is now the leader (clean racing
+  laps). *Still partial until a full lap traces; a multi-car ordered outline, or
+  always-use-static-outline-with-aligned-dots, would be the next step.*
+- [ ] Commentary for `pitwall live` (fetch ContentStreams on connect) — deferred:
+  the live feed is fully F1-TV-gated (401), so it's untestable right now.
 
 ## Requested next (2026-10-07 — partly done)
 
