@@ -5,6 +5,15 @@ code locations, approach, and open questions so it can be executed directly.
 
 ## Progress (2026-10-07, same day)
 
+- [x] **P4 — Live ingest** (`pitwall live`): F1 Live Timing **SignalR client**
+  (negotiate → ws connect → Subscribe → parse `R`/`M` frames → RawMessage),
+  wired to the engine + optional recorder, decoupled via an mpsc channel.
+  Frame parsing unit-tested. **Caveat**: since 2025 the live feed returns **401**
+  without an authenticated F1 TV session — handled gracefully with a clear
+  message; `--auth`/`$PITWALL_F1_COOKIE` forwards a session cookie. Could not be
+  end-to-end verified here (no F1 TV creds / no guaranteed live session); the
+  static archive path it shares *is* verified. *Later: real F1 TV OAuth login
+  flow (`pitwall login`), reconnect/backoff.*
 - [x] **P3 — TUI** (`pitwall tui --replay <dir>`): ratatui dashboard sharing the
   engine in-process — timing tower (team colours, lap/sector colours, tyres),
   track-map braille canvas, telemetry (gauges), conditions, race control, and

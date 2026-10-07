@@ -65,6 +65,19 @@ cargo run -p pitwall-cli -- replay data/silverstone-2023-race/
 > Live car positions are gated behind F1 TV; recorded/historical positions are
 > public, so the Track Details map works on exported sessions.
 
+### Live timing
+
+```sh
+pitwall live                       # serves both UIs off the live feed
+pitwall live --record data/my-session   # also save it for replay later
+```
+
+Since 2025 the live SignalR feed requires an **authenticated F1 TV session**, so
+pass your session cookie(s) with `--auth "<cookie>"` or `$PITWALL_F1_COOKIE`
+(and there must be a session live). The protocol client, recorder, and both UIs
+are implemented; only the feed itself is gated. The **static archive** used for
+`replay`/historical remains public and needs no login.
+
 ### Web dev loop
 
 ```sh

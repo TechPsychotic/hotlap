@@ -39,6 +39,10 @@ enum Command {
         /// Record the raw feed to this directory for later replay.
         #[arg(long, value_name = "DIR")]
         record: Option<PathBuf>,
+        /// F1 TV session cookie(s) for the (gated) live feed; or set
+        /// `$PITWALL_F1_COOKIE`.
+        #[arg(long, value_name = "COOKIE")]
+        auth: Option<String>,
     },
 
     /// Replay a previously recorded session.
@@ -101,9 +105,13 @@ async fn main() -> Result<()> {
     init_tracing(cli.verbose);
 
     match cli.command {
-        Command::Live { serve, record } => {
-            tracing::info!(?serve.addr, ?record, "live: not yet implemented (P4)");
-            not_implemented("live");
+        Command::Live {
+            serve,
+            record,
+            auth,
+        } => {
+            let auth = auth.or_else(|| std::env::var("PITWALL_F1_COOKIE").ok());
+            run_live(serve, record, auth).await?;
         }
         Command::Replay {
             path,
@@ -166,6 +174,53 @@ async fn run_replay(path: PathBuf, serve: ServeArgs, speed: f64, tui: bool) -> R
     } else {
         // Headless: run the replay to completion.
         handle.join().await;
+    }
+    Ok(())
+}
+
+/// Attach to the live F1 feed: ingest → engine (+ optional recorder) → serve.
+async fn run_live(serve: ServeArgs, record: Option<PathBuf>, auth: Option<String>) -> Result<()> {
+    let engine = Engine::new(4096);
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<pitwall_schema::RawMessage>(2048);
+
+    let mut recorder = match record {
+        Some(dir) => Some(
+            pitwall_core::Recorder::create(&dir)
+                .with_context(|| format!("creating recording in {}", dir.display()))?,
+        ),
+        None => None,
+    };
+    if recorder.is_some() {
+        tracing::info!("recording live feed for later replay");
+    }
+
+    // Feed incoming raw messages into the engine and (optionally) the recording.
+    let engine_feed = engine.clone();
+    tokio::spawn(async move {
+        while let Some(raw) = rx.recv().await {
+            engine_feed.apply(raw.clone());
+            if let Some(r) = recorder.as_mut() {
+                if r.record(&raw).and_then(|_| r.flush()).is_err() {
+                    tracing::warn!("failed to write recording");
+                }
+            }
+        }
+    });
+
+    // Drive the live SignalR client.
+    let signalr = tokio::spawn(async move {
+        if let Err(e) = pitwall_signalr::run(tx, auth).await {
+            tracing::error!(error = %e, "live feed ended");
+        }
+    });
+
+    if serve.serve {
+        if !serve.no_open {
+            open_browser(&format!("http://{}", serve.addr));
+        }
+        pitwall_server::serve(serve.addr, engine, None).await?;
+    } else {
+        let _ = signalr.await;
     }
     Ok(())
 }
