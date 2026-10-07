@@ -15,11 +15,19 @@ code locations, approach, and open questions so it can be executed directly.
   play inline from F1's static host.
 - [x] **#2 Timing-tower live sector delta** — per-driver running delta vs the
   session-best cumulative at the latest completed sector (S1/S2/Lap).
-- [~] **#3 Prediction window** — deterministic v1 done: **quali cut-off**
-  predictor (segment inference, cut line, SAFE/DANGER/OUT, bubble narrative) +
-  naive race podium. *Remaining: race-podium pace model, undercut/overcut + tyre
-  strategy (need a RACE session to build/test), then SLM narrative (phase 2,
-  user chose deterministic-first).*
+- [~] **#3 Prediction window** — deterministic v1 done for **both modes**:
+  - Quali: cut-off predictor (segment inference, cut line, SAFE/DANGER/OUT,
+    bubble narrative).
+  - Race: projected podium + threats, undercut-window flags (~2.5s of car
+    ahead), tyre/pit/interval table, templated summary. Pit loss hardcoded 22s.
+    Verified on real 2023 São Paulo GP.
+  - *Remaining: tyre-degradation model for smarter undercut/overcut + pace-based
+    finish projection; per-track pit-loss table; then the **SLM narrative**
+    (phase 2 — user chose deterministic-first); consider moving the math into a
+    Rust `predict.rs` so the TUI/SLM share it.*
+  - Race data is large (~10MB full race) so it's exported to the gitignored
+    `data/` dir, not committed: `tools/export_session.py 2023 "Paulo" Race data/…`.
+    The committed default stays Monaco quali.
 
 ## Where the project stands (context for next session)
 
