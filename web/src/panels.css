@@ -236,6 +236,33 @@
 .u-legend { display: none; }
 .tel-plot .uplot, .tel-plot .u-wrap { width: 100% !important; }
 
+/* Prediction */
+.pred-summary { padding: 10px 12px; font-size: 12px; line-height: 1.45; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+.pred-table { width: 100%; border-collapse: collapse; }
+.pred-table th, .pred-table td { padding: 5px 9px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: left; }
+.pred-table th { color: var(--dim); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; }
+.pred-table th.r, .pred-table td.r { text-align: right; }
+.pred-row { cursor: pointer; }
+.pred-row:hover { background: var(--panel-2); }
+.pred-row .drv { display: flex; align-items: center; gap: 7px; }
+.pred-row .drv .bar { width: 3px; height: 14px; border-radius: 2px; }
+.pred-row.cutline td { border-bottom: 2px solid var(--accent); }
+.pred-live { color: var(--green); font-size: 10px; }
+.pred-st { font-size: 10px; font-weight: 700; letter-spacing: 0.3px; }
+.pred-st.st-safe { color: var(--green); }
+.pred-st.st-danger { color: var(--yellow); }
+.pred-st.st-out { color: var(--accent); }
+.pred-st.st-nolap { color: var(--dim); }
+.pred-row.st-out { opacity: 0.8; }
+.pred-note { padding: 14px 12px; font-size: 11px; line-height: 1.5; }
+
+.podium { display: flex; align-items: flex-end; justify-content: center; gap: 12px; padding: 24px 12px; }
+.podium-step { display: flex; flex-direction: column; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 14px; }
+.podium-step .bar { width: 30px; height: 4px; border-radius: 2px; }
+.podium-step.p1 { padding-bottom: 34px; } .podium-step.p2 { padding-bottom: 22px; } .podium-step.p3 { padding-bottom: 12px; }
+.podium-pos { font-size: 11px; color: var(--dim); }
+.podium-tla { font-weight: 800; font-size: 16px; }
+
 /* Team radio */
 .radio-row { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
 .radio-row .bar { width: 3px; height: 28px; border-radius: 2px; flex: none; }

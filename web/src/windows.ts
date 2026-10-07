@@ -33,6 +33,7 @@ export const PANELS: PanelDef[] = [
   { id: "strategy", title: "Strategy", component: "strategy" },
   { id: "weather", title: "Weather", component: "weather" },
   { id: "radio", title: "Team Radio", component: "radio", defaultOpen: false },
+  { id: "prediction", title: "Prediction", component: "prediction", defaultOpen: false },
 ];
 
 const KEY = "pw.windows.v2";
@@ -62,8 +63,9 @@ export function layout(): Record<string, WinRect> {
     telemetry: { x: rightX, y: botY, w: telW, h: botH },
     strategy: { x: sideX, y: botY, w: sideW, h: stratH },
     weather: { x: sideX, y: botY + stratH + g, w: sideW, h: botH - stratH - g },
-    // Closed by default; opens over the lower-middle area.
+    // Closed by default; open over the middle area.
     radio: { x: rightX, y: Math.round(botY + botH * 0.1), w: Math.min(420, telW), h: Math.round(botH * 0.8) },
+    prediction: { x: Math.round(W * 0.28), y: Math.round(g + H * 0.12), w: 380, h: Math.round(H * 0.7) },
   };
 }
 
