@@ -1,11 +1,15 @@
 // Track Details: a clean SVG track map (2D/3D), current weather, and the
 // race-control log — all inline and compact.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import type { XY } from "../store";
 import type { RaceControlMessage } from "../types.gen";
 import { loadCircuits, matchCircuit, geoToPlanar, type LngLat } from "../circuits";
+import type { Highlight } from "./Track3D";
+
+// three.js is heavy; only load it when the 3D view is actually opened.
+const Track3D = lazy(() => import("./Track3D"));
 
 const VB = 1000;
 const PAD = 70;
@@ -49,6 +53,20 @@ function computeFlag(status: string | null | undefined, rc: RaceControlMessage[]
   }
 }
 
+/** Marshalling sectors currently showing yellow, from the net race-control
+ *  state (a YELLOW/DOUBLE YELLOW sets a sector, a CLEAR/GREEN resets it). */
+function activeYellows(rc: RaceControlMessage[]): { sector: number; double: boolean }[] {
+  const st = new Map<number, boolean>(); // sector -> is double
+  for (const m of rc) {
+    const s = m.sector;
+    if (typeof s !== "number") continue;
+    const f = (m.flag ?? "").toUpperCase();
+    if (f.includes("YELLOW")) st.set(s, f.includes("DOUBLE"));
+    else if (f.includes("CLEAR") || f.includes("GREEN")) st.delete(s);
+  }
+  return [...st.entries()].map(([sector, double]) => ({ sector, double }));
+}
+
 function flagColor(flag?: string | null, category?: string | null): string {
   const f = (flag ?? "").toUpperCase();
   if (f.includes("RED")) return "var(--accent)";
@@ -66,13 +84,20 @@ function bounds(pts: XY[]) {
   return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
 }
 
-function TrackMapView({ view3d, circuit }: { view3d: boolean; circuit: LngLat[] | null }) {
+function TrackMapView({
+  view3d,
+  circuit,
+  highlights,
+}: {
+  view3d: boolean;
+  circuit: LngLat[] | null;
+  highlights: Highlight[];
+}) {
   const trail = useStore((s) => s.trail);
   const path = useStore((s) => s.trackPath);
 
-  // The track is drawn from real circuit geolocation data (complete + correctly
-  // shaped). If no circuit matched, fall back to the accumulated position trail
-  // so there is still an outline. No live car markers are drawn.
+  // Both 2D and 3D use the real circuit geolocation outline. 3D adds the baked
+  // elevation; 2D falls back to the traced line only if no circuit matched.
   const geo = useMemo(() => (circuit && circuit.length > 2 ? geoToPlanar(circuit) : null), [circuit]);
   const outline: XY[] = geo ?? (path.length > 10 ? path : trail);
   const b = useMemo(() => bounds(outline), [outline]);
@@ -101,12 +126,65 @@ function TrackMapView({ view3d, circuit }: { view3d: boolean; circuit: LngLat[] 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geo, path, b]);
 
+  // The flagged stretches of track, highlighted over the outline.
+  const hiPaths = useMemo(() => {
+    if (!highlights.length || !geo || geo.length < 3) return [];
+    const N = geo.length;
+    return highlights
+      .map((h) => {
+        const i0 = Math.max(0, Math.floor(h.start * N));
+        const i1 = Math.min(N - 1, Math.ceil(h.end * N));
+        if (i1 - i0 < 1) return null;
+        const d = geo
+          .slice(i0, i1 + 1)
+          .map((p, idx) => {
+            const { cx, cy } = project(p.x, p.y);
+            return `${idx === 0 ? "M" : "L"}${cx.toFixed(1)} ${cy.toFixed(1)}`;
+          })
+          .join(" ");
+        return { d, double: h.double };
+      })
+      .filter((x): x is { d: string; double: boolean } => x != null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlights, geo, b]);
+
+  // Start/finish line: a bar across the track at the outline's first point.
+  const start = useMemo(() => {
+    const src = geo ?? (path.length >= 10 ? path : null);
+    if (!src || src.length < 2 || !b) return null;
+    const a = src[0];
+    let dx = src[1].x - a.x;
+    let dy = src[1].y - a.y;
+    const L = Math.hypot(dx, dy) || 1;
+    dx /= L;
+    dy /= L;
+    const span = Math.max(b.maxX - b.minX, b.maxY - b.minY) || 1;
+    const half = span * 0.03; // bar half-width in data units
+    const p1 = project(a.x - dy * half, a.y + dx * half);
+    const p2 = project(a.x + dy * half, a.y - dx * half);
+    return { p1, p2 };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geo, path, b]);
+
+  if (view3d) {
+    if (!circuit || circuit.length < 4) {
+      return <div className="empty">No circuit geometry matched for this session.</div>;
+    }
+    return (
+      <div className="td-map-inner">
+        <Suspense fallback={<div className="empty">Loading 3D…</div>}>
+          <Track3D circuit={circuit} highlights={highlights} />
+        </Suspense>
+      </div>
+    );
+  }
+
   if (!outline || outline.length < 3) {
     return <div className="empty">No circuit outline matched for this session.</div>;
   }
 
   return (
-    <div className={`td-map-inner ${view3d ? "is-3d" : ""}`}>
+    <div className="td-map-inner">
       <svg viewBox={`0 0 ${VB} ${VB}`} className="trackmap">
         {d ? (
           <path d={d} className="tm-line" />
@@ -115,6 +193,12 @@ function TrackMapView({ view3d, circuit }: { view3d: boolean; circuit: LngLat[] 
             const { cx, cy } = project(p.x, p.y);
             return <circle key={i} cx={cx} cy={cy} r={3.5} className="tm-track" />;
           })
+        )}
+        {hiPaths.map((h, i) => (
+          <path key={i} d={h.d} className={h.double ? "tm-hi-double" : "tm-hi"} />
+        ))}
+        {start && (
+          <line x1={start.p1.cx} y1={start.p1.cy} x2={start.p2.cx} y2={start.p2.cy} className="tm-start" />
         )}
       </svg>
     </div>
@@ -167,6 +251,24 @@ export default function TrackDetails() {
   }, [circuitName, country, meetingName]);
 
   const flag = computeFlag(track?.status, messages);
+
+  // Highlight the flagged stretches of track during yellows. Race control
+  // reports marshalling-sector numbers; map each currently-yellow sector to a
+  // lap fraction using the highest sector seen this session as the sector
+  // count. (Approximate: it assumes the outline starts at the start/finish line
+  // and runs in the outline's point order.)
+  const highlights: Highlight[] = useMemo(() => {
+    if (track?.status !== "2") return [];
+    let max = 0;
+    for (const m of messages) if (typeof m.sector === "number" && m.sector > max) max = m.sector;
+    if (max <= 0) return [];
+    return activeYellows(messages).map(({ sector, double }) => ({
+      start: (sector - 1) / max,
+      end: sector / max,
+      double,
+    }));
+  }, [messages, track?.status]);
+
   const [greenFlash, setGreenFlash] = useState(false);
   const prevStatus = useRef<string | null | undefined>(undefined);
   useEffect(() => {
@@ -199,7 +301,7 @@ export default function TrackDetails() {
       </div>
       <div className="td-main">
         <div className="td-mapwrap">
-          <TrackMapView view3d={view3d} circuit={circuit} />
+          <TrackMapView view3d={view3d} circuit={circuit} highlights={highlights} />
           {overlayKind !== "none" && <div className={`flag-overlay flag-${overlayKind}`} />}
         </div>
         <WeatherColumn />

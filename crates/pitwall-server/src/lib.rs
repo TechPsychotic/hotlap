@@ -53,6 +53,7 @@ pub fn router(hub: Arc<Hub>) -> Router {
         .route("/api/replay/control", post(replay_control_handler))
         .route("/api/years", get(years_handler))
         .route("/api/index/:year", get(index_handler))
+        .route("/api/calendar/:year", get(calendar_handler))
         .route("/api/session/load", post(load_handler))
         .route("/api/session/status", get(session_status_handler))
         .route("/api/events", get(events_handler))
@@ -129,6 +130,27 @@ async fn index_handler(Path(year): Path<i32>) -> Response {
     match historical::index(year, None).await {
         Ok(events) => Json(events).into_response(),
         Err(e) => (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
+/// Proxy the season race calendar from Jolpica (Ergast) so the web GUI can read
+/// it same-origin (Jolpica sends no CORS header).
+async fn calendar_handler(Path(year): Path<i32>) -> Response {
+    let url = format!("https://api.jolpi.ca/ergast/f1/{year}.json");
+    let fetch = async {
+        let resp = reqwest::get(&url).await.ok()?;
+        if !resp.status().is_success() {
+            return None;
+        }
+        resp.text().await.ok()
+    };
+    match fetch.await {
+        Some(body) => (
+            [(axum::http::header::CONTENT_TYPE, "application/json")],
+            body,
+        )
+            .into_response(),
+        None => (StatusCode::BAD_GATEWAY, "calendar fetch failed").into_response(),
     }
 }
 

@@ -27,7 +27,28 @@
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
 
+  /* Liquid-glass material (iOS-like): translucent + blurred, with a bright
+     specular hairline and a soft depth shadow. Reads from the panel tokens so
+     it follows the theme. */
+  --glass-bg: color-mix(in srgb, var(--panel) 68%, transparent);
+  --glass-chrome: color-mix(in srgb, var(--bg-2) 55%, transparent);
+  --glass-soft: color-mix(in srgb, var(--panel-2) 55%, transparent);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-hi: rgba(255, 255, 255, 0.16);
+  --glass-blur: 18px;
+  --glass-sat: 180%;
+  --glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+
   color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --glass-bg: color-mix(in srgb, var(--panel) 62%, transparent);
+  --glass-chrome: color-mix(in srgb, var(--bg-2) 55%, transparent);
+  --glass-soft: color-mix(in srgb, var(--panel-2) 60%, transparent);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-hi: rgba(255, 255, 255, 0.8);
+  --glass-shadow: 0 16px 40px rgba(60, 70, 90, 0.22);
 }
 
 :root[data-theme="light"] {
@@ -51,7 +72,11 @@ html, body, #root {
 }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 700px at 78% -10%, rgba(225, 6, 0, 0.16), transparent 60%),
+    radial-gradient(1000px 800px at 8% 110%, rgba(74, 168, 255, 0.10), transparent 55%),
+    linear-gradient(160deg, var(--bg-2), var(--bg));
+  background-attachment: fixed;
   color: var(--fg);
   font-family: var(--sans);
   font-size: 13px;

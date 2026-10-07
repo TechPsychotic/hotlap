@@ -15,6 +15,8 @@ export type ConnState = "connecting" | "open" | "closed";
 export interface XY {
   x: number;
   y: number;
+  /** Optional elevation (from Position `Z`), used by the 3D track view. */
+  z?: number;
 }
 
 /** A driver's running lap delta at the latest completed sector of the current
@@ -97,7 +99,7 @@ function accumulateTrackPath(state: SessionState): boolean {
   const last = trackPts[trackPts.length - 1];
   const moved = last ? Math.hypot(p.x - last.x, p.y - last.y) : Infinity;
   if (moved > 80 && trackPts.length < 3000) {
-    trackPts.push({ x: p.x, y: p.y });
+    trackPts.push({ x: p.x, y: p.y, z: p.z ?? undefined });
     return true;
   }
   return false;
@@ -124,6 +126,9 @@ export interface LapTrace {
   /** Lap time in ms (set once the lap completes), else null. */
   timeMs: number | null;
   complete: boolean;
+  /** Seconds-into-lap at which S1, S2, S3 completed (null until crossed), used
+   *  to plot telemetry against sector position rather than raw time. */
+  bounds: (number | null)[];
 }
 
 const TEL_CAP = 800; // max samples retained per lap
@@ -133,9 +138,16 @@ let telCur: Record<string, LapTrace> = {}; // in-progress lap per driver
 let telLapNum: Record<string, number> = {}; // last seen numberOfLaps
 let telLapStart: Record<string, number> = {}; // offsetMs at current lap start
 let telLastOff: Record<string, number> = {}; // last processed CarData offset
+let telSecBase: Record<string, (string | null)[]> = {}; // sector values at lap start
+let telSecDone: Record<string, boolean[]> = {}; // which sectors recorded this lap
 
 function newTrace(lap: number): LapTrace {
-  return { lap, t: [], speed: [], thr: [], brk: [], timeMs: null, complete: false };
+  return { lap, t: [], speed: [], thr: [], brk: [], timeMs: null, complete: false, bounds: [null, null, null] };
+}
+
+function sectorValues(state: SessionState, n: string): (string | null)[] {
+  const secs = state.timing?.[n]?.sectors ?? [];
+  return [secs[0]?.value ?? null, secs[1]?.value ?? null, secs[2]?.value ?? null];
 }
 
 function resetTelemetry() {
@@ -144,6 +156,8 @@ function resetTelemetry() {
   telLapNum = {};
   telLapStart = {};
   telLastOff = {};
+  telSecBase = {};
+  telSecDone = {};
 }
 
 function accumulateTelemetry(state: SessionState) {
@@ -159,6 +173,8 @@ function accumulateTelemetry(state: SessionState) {
       telLapNum[n] = laps;
       telLapStart[n] = c.offsetMs;
       telCur[n] = newTrace(laps + 1);
+      telSecBase[n] = sectorValues(state, n);
+      telSecDone[n] = [false, false, false];
     } else if (laps > telLapNum[n]) {
       // The car crossed the line: finalize the lap just run, start the next.
       const done = telCur[n];
@@ -166,11 +182,15 @@ function accumulateTelemetry(state: SessionState) {
         done.lap = laps;
         done.complete = true;
         done.timeMs = lapMs(timing[n]?.lastLapTime?.value ?? null);
+        // Close out S3 at the lap's last sample if the boundary wasn't caught.
+        if (done.bounds[2] == null) done.bounds[2] = done.t[done.t.length - 1] ?? null;
         (telLaps[n] ??= new Map()).set(laps, done);
       }
       telLapNum[n] = laps;
       telLapStart[n] = c.offsetMs;
       telCur[n] = newTrace(laps + 1);
+      telSecBase[n] = sectorValues(state, n);
+      telSecDone[n] = [false, false, false];
     }
 
     const cur = telCur[n];
@@ -181,6 +201,17 @@ function accumulateTelemetry(state: SessionState) {
         cur.speed.push(c.speed ?? null);
         cur.thr.push(c.throttle ?? 0);
         cur.brk.push(c.brake ?? 0);
+        // Record a sector boundary when its time first appears for this lap.
+        const base = telSecBase[n] ?? [null, null, null];
+        const done = telSecDone[n] ?? [false, false, false];
+        const vals = sectorValues(state, n);
+        for (let i = 0; i < 3; i++) {
+          if (!done[i] && vals[i] && vals[i] !== base[i]) {
+            done[i] = true;
+            cur.bounds[i] = ts;
+          }
+        }
+        telSecDone[n] = done;
       }
     }
   }

@@ -30,7 +30,7 @@ function toggleTheme() {
   }
 }
 
-export default function TopBar() {
+export default function TopBar({ onHome }: { onHome?: () => void }) {
   const conn = useStore((s) => s.conn);
   const session = useStore((s) => s.state.session);
   const track = useStore((s) => s.state.trackStatus);
@@ -42,9 +42,9 @@ export default function TopBar() {
 
   return (
     <header className="topbar">
-      <div className="brand">
+      <button className="brand ghost" title="Home" onClick={onHome}>
         <span className="brand-mark">▟</span> PITWALL
-      </div>
+      </button>
 
       <div className="session muted">{title || "No session"}</div>
 

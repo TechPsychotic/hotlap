@@ -1,7 +1,8 @@
 // Static circuit outlines (bundled f1-circuits GeoJSON), used to draw the track
 // map when no live/recorded position data is available (e.g. gated live feeds).
 
-export type LngLat = [number, number];
+// [lng, lat] or, when elevation has been baked in, [lng, lat, elevation(m)].
+export type LngLat = number[];
 
 interface Feature {
   properties: { id: string; Location: string; Name: string };

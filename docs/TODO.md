@@ -3,6 +3,38 @@
 Feature requests captured 2026-10-07. Grouped by area, with data sources, likely
 code locations, approach, and open questions so it can be executed directly.
 
+## Requested (2026-10-08, round 6) — done
+
+- [x] **Telemetry graph** reverted to the smooth, time-based trace (restored the
+  committed version; x = seconds into lap, raw samples plotted).
+- [x] **Elevation for all 40 circuits** baked into `web/public/circuits.geojson`
+  (`[lng, lat, elevation]`) from open topography APIs — Open-Meteo, with
+  Open-Elevation as the fallback for the last 4 that hit rate limits.
+- [x] **Interactive 3D track** (`web/src/panels/Track3D.tsx`, three.js +
+  OrbitControls) built from circuit geo + baked elevation (no longer car
+  position); rotate / zoom / pan. three.js is lazy-loaded.
+- [x] **Yellow / double-yellow area highlight** on 2D + 3D maps — net
+  per-marshalling-sector state (YELLOW sets, CLEAR resets) → highlight every
+  active sector. *Approx: assumes the outline starts at S/F and runs in point
+  order (geo data has no marshalling-sector labels).*
+- [x] **Start/finish line** marked on every map (2D white bar, 3D white gate) at
+  the outline's first point.
+- [x] **Liquid-glass UI** (iOS-style translucent + blurred panels/chrome with a
+  specular hairline) over a themed F1 background. Tokens in `theme.css`, applied
+  at the end of `panels.css`.
+- [x] **Landing / home page** (`web/src/components/Landing.tsx`) — F1-themed,
+  mouse parallax, next-race **countdown in the viewer's local time zone**, full
+  season calendar as cards. Calendar proxied by the core via new
+  `GET /api/calendar/:year` (Jolpica/Ergast; it sends no CORS header).
+
+### To do (landing page)
+
+- [ ] **Launch sessions from the landing page instead of the generic "Enter
+  Telemetry" button** — make the next-race card and the calendar race cards
+  clickable to load + enter that session's telemetry directly. *(Exact desired
+  behaviour to be confirmed — e.g. click a past race → replay it; click upcoming
+  → ? )*
+
 ## Requested (2026-10-07, round 3) — done
 
 - [x] Commentary **time-synced** to the replay (anchor post times to a feed
