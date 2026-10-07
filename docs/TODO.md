@@ -5,6 +5,14 @@ code locations, approach, and open questions so it can be executed directly.
 
 ## Progress (2026-10-07, same day)
 
+- [x] **P5 — `historical` in core** (`pitwall historical <year> <gp> <session>`):
+  Rust port of the export tool in `pitwall-core::historical` — resolves the
+  session from the season Index, downloads the archived `.jsonStream` topics
+  (percent-encoding + exact-name matching), parses + windows/downsamples into a
+  Recording, caches raw downloads under the OS cache dir, and replays through
+  both UIs. **Verified end-to-end** on 2023 Monaco Qualifying (public archive, no
+  login). *Later: Jolpica/Ergast for nicer event lookup; a historical browser
+  panel.*
 - [x] **P4 — Live ingest** (`pitwall live`): F1 Live Timing **SignalR client**
   (negotiate → ws connect → Subscribe → parse `R`/`M` frames → RawMessage),
   wired to the engine + optional recorder, decoupled via an mpsc channel.

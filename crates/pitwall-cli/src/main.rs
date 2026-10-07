@@ -59,16 +59,27 @@ enum Command {
         tui: bool,
     },
 
-    /// Download and replay a historical session.
+    /// Download and replay a historical session from F1's public archive.
     Historical {
         /// Season year, e.g. 2023.
         year: i32,
-        /// Event name or round, e.g. "Monaco" or "7".
+        /// Event name substring, e.g. "Monaco".
         event: String,
-        /// Session, e.g. "race", "qualifying", "fp1".
+        /// Session, e.g. "race", "qualifying", "sprint", "practice 1".
         session: String,
         #[command(flatten)]
         serve: ServeArgs,
+        /// Keep every Nth car-telemetry / position frame (shrinks big races).
+        #[arg(long, default_value_t = 1)]
+        car_stride: usize,
+        #[arg(long, default_value_t = 1)]
+        pos_stride: usize,
+        /// Only keep up to this many minutes of the session (0 = full).
+        #[arg(long, default_value_t = 0)]
+        max_minutes: u64,
+        /// Start the window this many minutes into the recording (re-based to 0).
+        #[arg(long, default_value_t = 0)]
+        start_minutes: u64,
     },
 
     /// Launch the terminal UI.
@@ -126,9 +137,19 @@ async fn main() -> Result<()> {
             event,
             session,
             serve,
+            car_stride,
+            pos_stride,
+            max_minutes,
+            start_minutes,
         } => {
-            tracing::info!(year, %event, %session, ?serve.addr, "historical: not yet implemented (P5)");
-            not_implemented("historical");
+            let opts = pitwall_core::historical::FetchOptions {
+                start_ms: start_minutes * 60_000,
+                end_ms: (max_minutes > 0).then(|| max_minutes * 60_000),
+                car_stride: car_stride.max(1),
+                pos_stride: pos_stride.max(1),
+                cache_dir: historical_cache_dir(),
+            };
+            run_historical(year, event, session, serve, opts).await?;
         }
         Command::Tui {
             replay,
@@ -173,6 +194,48 @@ async fn run_replay(path: PathBuf, serve: ServeArgs, speed: f64, tui: bool) -> R
         pitwall_server::serve(serve.addr, engine, Some(handle.control())).await?;
     } else {
         // Headless: run the replay to completion.
+        handle.join().await;
+    }
+    Ok(())
+}
+
+/// Cache directory for raw historical downloads.
+fn historical_cache_dir() -> Option<PathBuf> {
+    directories::ProjectDirs::from("", "", "pitwall").map(|p| p.cache_dir().join("historical"))
+}
+
+/// Download a historical session and replay it (optionally serving the UIs).
+async fn run_historical(
+    year: i32,
+    event: String,
+    session: String,
+    serve: ServeArgs,
+    opts: pitwall_core::historical::FetchOptions,
+) -> Result<()> {
+    let fetched = pitwall_core::historical::fetch(year, &event, &session, &opts)
+        .await
+        .with_context(|| format!("fetching {year} {event} {session}"))?;
+    tracing::info!(
+        name = %fetched.name,
+        messages = fetched.recording.messages.len(),
+        duration_ms = fetched.recording.duration_ms,
+        "loaded historical session"
+    );
+
+    let engine = Engine::new(4096);
+    let handle = pitwall_core::spawn_replay(
+        engine.clone(),
+        fetched.recording,
+        SourceKind::Historical,
+        1.0,
+        true,
+    );
+    if serve.serve {
+        if !serve.no_open {
+            open_browser(&format!("http://{}", serve.addr));
+        }
+        pitwall_server::serve(serve.addr, engine, Some(handle.control())).await?;
+    } else {
         handle.join().await;
     }
     Ok(())
@@ -259,10 +322,6 @@ fn open_browser(url: &str) {
         Ok(_) => tracing::info!(%url, "opened browser"),
         Err(e) => tracing::debug!(%url, error = %e, "could not open browser automatically"),
     }
-}
-
-fn not_implemented(what: &str) {
-    eprintln!("pitwall: `{what}` is scaffolded but not implemented yet — see the roadmap.");
 }
 
 fn init_tracing(verbose: u8) {

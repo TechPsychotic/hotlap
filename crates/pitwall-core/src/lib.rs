@@ -7,6 +7,7 @@
 //!
 pub mod decode;
 pub mod engine;
+pub mod historical;
 pub mod merge;
 pub mod parser;
 pub mod recording;
@@ -21,10 +22,14 @@ pub use replay::{spawn as spawn_replay, ReplayHandle};
 pub enum Error {
     #[error("decode error: {0}")]
     Decode(String),
+    #[error("{0}")]
+    NotFound(String),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Http(#[from] reqwest::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

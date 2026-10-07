@@ -51,16 +51,21 @@ play / pause / seek / change speed. The layout is remembered per browser.
 (Q1 flying laps, incl. the yellow/red flags), exported with `tools/export_session.py`.
 `fixtures/sample/` is a tiny hand-authored one used by tests.
 
-### Export another real session
+### Any past session, on demand
 
 Pitwall reads F1's archived Live Timing `.jsonStream` files directly (the same
-source FastF1 uses) — no F1 TV login needed for past public sessions:
+source FastF1 uses) — no F1 TV login needed for past public sessions. Fetch,
+cache, and replay any past session in one command:
 
 ```sh
-tools/export_session.py 2023 "Silverstone" Race data/silverstone-2023-race \
-    --start-seconds 0 --car-stride 2 --pos-stride 2
-cargo run -p pitwall-cli -- replay data/silverstone-2023-race/
+cargo run -p pitwall-cli -- historical 2023 Silverstone Race
+# big race? downsample telemetry: --car-stride 3 --pos-stride 3
+# or window it:                   --start-minutes 20 --max-minutes 50
 ```
+
+The raw download is cached under your OS cache dir, so re-runs are offline. The
+standalone `tools/export_session.py` writes the same format to a directory if you
+prefer a saved fixture.
 
 > Live car positions are gated behind F1 TV; recorded/historical positions are
 > public, so the Track Details map works on exported sessions.
