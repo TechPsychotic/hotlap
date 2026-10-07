@@ -3,6 +3,25 @@
 Feature requests captured 2026-10-07. Grouped by area, with data sources, likely
 code locations, approach, and open questions so it can be executed directly.
 
+## Requested (2026-10-07, round 3) — done
+
+- [x] Commentary **time-synced** to the replay (anchor post times to a feed
+  Utc+offset; reveals as the playhead reaches each post).
+- [x] **Fast seek** — rebuild applies only the latest CarData/Position before the
+  target (no mass re-inflation); ~0.3s scrubs.
+- [x] **Timeline event markers** — core::compute_events → Hub → GET /api/events →
+  coloured ticks on the slider (start/flags/SC/VSC/red/finish).
+- [x] **Track Details compact** — map | (weather + race control) inline.
+- [x] **SVG track map** (clean line from an ordered reference-car path) + **2D/3D**
+  toggle (CSS perspective).
+- [ ] **Static circuit SVGs** for truly position-less sessions (live 2025+ is
+  gated; historical 2025/2026 still ship Position.z, so the line works there).
+  Plan: bundle a circuit-outline dataset (e.g. bacinger/f1-circuits GeoJSON),
+  match by circuit name, project + draw; use when no position data is present.
+- [ ] Polish: reference-car line can be partial/spiky (pick a car doing full
+  racing laps, or build an ordered outline from all cars); commentary for
+  `pitwall live` (fetch ContentStreams on connect).
+
 ## Requested next (2026-10-07 — partly done)
 
 - [x] **Telemetry fixed** — responsive layout; compare now **lap-aligned** (x =
