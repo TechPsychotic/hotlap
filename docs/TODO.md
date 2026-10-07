@@ -1,8 +1,21 @@
 # Pitwall — TODO / next-session roadmap
 
-Feature requests captured 2026-10-07 for the next working session. Nothing here
-is implemented yet. Grouped by area, with data sources, likely code locations,
-approach, and open questions so it can be executed directly.
+Feature requests captured 2026-10-07. Grouped by area, with data sources, likely
+code locations, approach, and open questions so it can be executed directly.
+
+## Progress (2026-10-07, same day)
+
+- [x] **#1 Telemetry throttle/brake graphs** — Speed+Throttle+Brake traces.
+- [x] **#1b Multi-driver telemetry compare** — overlay up to 3 drivers' speed
+  (time-aligned on the primary's cadence). *Later: distance-aligned lap compare.*
+- [x] **#4 Track Details** — weather inline (map left, weather right) + flag-state
+  map highlighting (red/yellow/double/SC/VSC/green + sector badge).
+  *Later: per-sector map-region tinting (needs marshal-sector → map mapping).*
+- [x] **#5 Team radio** — SessionInfo `path` exposed; TeamRadio exported; clips
+  play inline from F1's static host.
+- [ ] **#2 Timing-tower live lap delta** — needs the user to confirm which delta
+  (sector delta vs gap trend vs last-lap-vs-best). See below.
+- [ ] **#3 Prediction window** — big; needs SLM hosting decision. See below.
 
 ## Where the project stands (context for next session)
 
