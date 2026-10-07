@@ -13,9 +13,13 @@ code locations, approach, and open questions so it can be executed directly.
   *Later: per-sector map-region tinting (needs marshal-sector → map mapping).*
 - [x] **#5 Team radio** — SessionInfo `path` exposed; TeamRadio exported; clips
   play inline from F1's static host.
-- [ ] **#2 Timing-tower live lap delta** — needs the user to confirm which delta
-  (sector delta vs gap trend vs last-lap-vs-best). See below.
-- [ ] **#3 Prediction window** — big; needs SLM hosting decision. See below.
+- [x] **#2 Timing-tower live sector delta** — per-driver running delta vs the
+  session-best cumulative at the latest completed sector (S1/S2/Lap).
+- [~] **#3 Prediction window** — deterministic v1 done: **quali cut-off**
+  predictor (segment inference, cut line, SAFE/DANGER/OUT, bubble narrative) +
+  naive race podium. *Remaining: race-podium pace model, undercut/overcut + tyre
+  strategy (need a RACE session to build/test), then SLM narrative (phase 2,
+  user chose deterministic-first).*
 
 ## Where the project stands (context for next session)
 
