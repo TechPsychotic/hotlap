@@ -35,6 +35,7 @@ export const PANELS: PanelDef[] = [
   { id: "weather", title: "Weather", component: "weather", defaultOpen: false },
   { id: "radio", title: "Team Radio", component: "radio" },
   { id: "prediction", title: "Prediction", component: "prediction", defaultOpen: false },
+  { id: "commentary", title: "Commentary", component: "commentary", defaultOpen: false },
 ];
 
 const KEY = "pw.windows.v3";
@@ -68,6 +69,7 @@ export function layout(): Record<string, WinRect> {
     // Closed by default; open over the middle area.
     weather: { x: rightX, y: Math.round(botY + botH * 0.2), w: Math.min(360, telW), h: Math.round(botH * 0.6) },
     prediction: { x: Math.round(W * 0.28), y: Math.round(g + H * 0.12), w: 380, h: Math.round(H * 0.7) },
+    commentary: { x: Math.round(W * 0.2), y: Math.round(g + H * 0.15), w: 440, h: Math.round(H * 0.6) },
   };
 }
 

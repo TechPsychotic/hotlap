@@ -84,6 +84,10 @@ export interface SessionState {
   };
   clock: ExtrapolatedClock;
   /**
+   * Broadcast-ticker commentary messages (the `TlaRcm` feed), newest last.
+   */
+  commentary: CommentaryMsg[];
+  /**
    * Static-ish per-driver info (name, team, colour), keyed by racing number.
    */
   drivers: {
@@ -152,6 +156,11 @@ export interface ExtrapolatedClock {
    * Time remaining in the session, `HH:MM:SS`.
    */
   remaining?: string | null;
+  utc?: string | null;
+  [k: string]: unknown;
+}
+export interface CommentaryMsg {
+  message?: string | null;
   utc?: string | null;
   [k: string]: unknown;
 }

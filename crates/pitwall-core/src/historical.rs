@@ -26,6 +26,7 @@ const STREAM_TOPICS: &[&str] = &[
     "ExtrapolatedClock",
     "WeatherData",
     "RaceControlMessages",
+    "TlaRcm",
     "TeamRadio",
     "TimingData",
     "TimingAppData",

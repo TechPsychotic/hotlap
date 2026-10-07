@@ -31,8 +31,17 @@ pub struct SessionState {
 
     /// Rolling race-control log, newest last.
     pub race_control: Vec<RaceControlMessage>,
+    /// Broadcast-ticker commentary messages (the `TlaRcm` feed), newest last.
+    pub commentary: Vec<CommentaryMsg>,
     /// Captured team-radio clips.
     pub team_radio: Vec<TeamRadioClip>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CommentaryMsg {
+    pub utc: Option<String>,
+    pub message: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]

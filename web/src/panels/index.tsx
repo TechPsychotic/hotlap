@@ -6,6 +6,7 @@ import Weather from "./Weather";
 import TrackDetails from "./TrackDetails";
 import Radio from "./Radio";
 import Prediction from "./Prediction";
+import Commentary from "./Commentary";
 
 /** Maps a window's `component` name to its React component. */
 export const COMPONENTS: Record<string, ComponentType> = {
@@ -16,4 +17,5 @@ export const COMPONENTS: Record<string, ComponentType> = {
   trackDetails: TrackDetails,
   radio: Radio,
   prediction: Prediction,
+  commentary: Commentary,
 };
