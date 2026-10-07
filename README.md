@@ -47,6 +47,13 @@ Open <http://127.0.0.1:8080>. Windows **float, overlap, move, and resize** like 
 desktop; use the **taskbar** to open/minimize them, and the transport bar to
 play / pause / seek / change speed. The layout is remembered per browser.
 
+Or start with an empty **session picker** and choose any season / event / session
+(practices included) from the dropdowns — it fetches and loads on the fly:
+
+```sh
+cargo run -p pitwall-cli -- serve
+```
+
 `fixtures/monaco-2023-quali/` is a real slice of the 2023 Monaco GP qualifying
 (Q1 flying laps, incl. the yellow/red flags), exported with `tools/export_session.py`.
 `fixtures/sample/` is a tiny hand-authored one used by tests.

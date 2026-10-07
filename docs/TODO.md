@@ -9,23 +9,15 @@ code locations, approach, and open questions so it can be executed directly.
   seconds into each driver's own lap, reset on lap increment).
 - [x] **Default layout** — Team Radio in the old Weather slot; Weather closed by
   default (also inline in Track Details) + on the taskbar.
-- [ ] **Session picker** (BIG): one page with **year → event → session** dropdowns
-  (incl. practices) that fetches + loads any session on demand. Plan: add a
-  `pitwall serve` (empty engine) + a server **session manager** that can swap the
-  current replay at runtime; REST `GET /api/years` (available: 2018–2021, 2023–2026;
-  2022 is 403), `GET /api/index/{year}` (events+sessions from Index.json — add a
-  `historical::index(year)` helper), `POST /api/session/load {year,event,session}`
-  (async fetch → `engine.reset_state` → respawn replay), `GET /api/session/status`.
-  Make the server's replay control route to the *current* handle (Hub). Web: a
-  picker window/top-bar control; show a loading state; WS resyncs on new snapshot.
-- [ ] **Commentary/content**: `ContentStreams.json` has a `Commentary` stream
-  (ScribbleLive embed URI) + an `Audio` stream (HLS m3u8); `TlaRcm.jsonStream` is a
-  clean broadcast-style message feed that works for every session. Plan: fetch
-  `ContentStreams`/`TlaRcm` (historical + live Subscribe), parse into state
-  (`content` = commentary/audio URLs; a `commentary`/TlaRcm message list), add a
-  **Commentary** window (TlaRcm feed as primary; optional iframe of the
-  ScribbleLive URI / HLS audio player when present). Verify ScribbleLive embed
-  still loads for historical before relying on it.
+- [x] **Session picker** (`pitwall serve` + top-bar dropdowns): a server **Hub**
+  swaps the current replay at runtime; REST `GET /api/years`,
+  `GET /api/index/:year`, `POST /api/session/load`, `GET /api/session/status`;
+  control routes to the current replay; WS resyncs on the new snapshot. Verified
+  loading 2024 Spanish GP Race from the dropdowns.
+- [x] **Commentary** (`TlaRcm` ticker): fetched (historical + live), parsed into
+  `SessionState.commentary`, shown in a Commentary window. ScribbleLive (the
+  ContentStreams text commentary) is dead, so TlaRcm is the source. *Later: HLS
+  audio-stream player from ContentStreams for live sessions.*
 
 ## Progress (2026-10-07, same day)
 
