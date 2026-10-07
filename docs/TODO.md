@@ -14,10 +14,15 @@ code locations, approach, and open questions so it can be executed directly.
   `GET /api/index/:year`, `POST /api/session/load`, `GET /api/session/status`;
   control routes to the current replay; WS resyncs on the new snapshot. Verified
   loading 2024 Spanish GP Race from the dropdowns.
-- [x] **Commentary** (`TlaRcm` ticker): fetched (historical + live), parsed into
-  `SessionState.commentary`, shown in a Commentary window. ScribbleLive (the
-  ContentStreams text commentary) is dead, so TlaRcm is the source. *Later: HLS
-  audio-stream player from ContentStreams for live sessions.*
+- [x] **Commentary** = F1's real live-blog. ContentStreams → the Monterosa
+  commentary URI (2024+; 2023- used the dead ScribbleLive) → that event's static
+  `https://{host}/events/{id[:2]}/{id}/history.json` timeline. `fetch_commentary`
+  in core/historical pulls + HTML-strips the posts into `SessionState.commentary`
+  (title + text); shown in the Commentary window. *Later: (1) time-sync posts to
+  the replay playhead (currently all at offset 0) by anchoring post timestamps to
+  a feed Utc+offset pair; (2) Monterosa WebSocket (`edgeservers-nlb-europe`,
+  subscribe `Live-{projectId}`) for live deltas; (3) commentary for `pitwall live`
+  (fetch ContentStreams on connect).*
 
 ## Progress (2026-10-07, same day)
 
