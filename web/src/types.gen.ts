@@ -161,6 +161,7 @@ export interface ExtrapolatedClock {
 }
 export interface CommentaryMsg {
   message?: string | null;
+  title?: string | null;
   utc?: string | null;
   [k: string]: unknown;
 }

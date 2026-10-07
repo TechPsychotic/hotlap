@@ -37,7 +37,7 @@ pub fn apply(state: &mut SessionState, msg: &RawMessage) -> Result<()> {
         "CarData" => apply_car_data(state, &payload, msg.offset_ms),
         "Position" => apply_position(state, &payload, msg.offset_ms),
         "RaceControlMessages" => apply_race_control(state, &payload),
-        "TlaRcm" => apply_commentary(state, &payload),
+        "Commentary" => apply_commentary(state, &payload),
         "TeamRadio" => apply_team_radio(state, &payload),
         "Heartbeat" => {}
         _ => {} // Unknown/unhandled topic: ignored, not an error.
@@ -320,22 +320,17 @@ fn apply_race_control(state: &mut SessionState, p: &Value) {
     }
 }
 
+/// One commentary post from F1's live-blog (Monterosa), injected server-side as
+/// a synthetic `Commentary` message (`{Title, Text, Utc}`).
 fn apply_commentary(state: &mut SessionState, p: &Value) {
-    let push = |state: &mut SessionState, m: &Value| {
-        if let Some(message) = coerce::str(&m["Message"]) {
-            state.commentary.push(CommentaryMsg {
-                utc: coerce::str(&m["Timestamp"]).or_else(|| coerce::str(&m["Utc"])),
-                message: Some(message),
-            });
-        }
-    };
-    // A single {Timestamp, Message}, or a collection (initial state).
-    if p.get("Message").is_some() {
-        push(state, p);
-    } else {
-        for (_, m) in indexed(p) {
-            push(state, m);
-        }
+    let title = coerce::str(&p["Title"]);
+    let message = coerce::str(&p["Text"]);
+    if title.is_some() || message.is_some() {
+        state.commentary.push(CommentaryMsg {
+            utc: coerce::str(&p["Utc"]),
+            title,
+            message,
+        });
     }
 }
 

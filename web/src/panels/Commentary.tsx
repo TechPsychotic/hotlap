@@ -1,6 +1,6 @@
-// Commentary: the broadcast TV-ticker feed (F1's TlaRcm), newest first. Works
-// for every session (live + historical); the old ScribbleLive text commentary
-// that ContentStreams points to is defunct.
+// Commentary: F1's live-blog commentary (fetched server-side from the session's
+// Monterosa feed via ContentStreams). Newest first. Available for 2024+ sessions
+// (2023 and earlier used the now-defunct ScribbleLive).
 
 import { useStore } from "../store";
 
@@ -10,11 +10,16 @@ export default function Commentary() {
   return (
     <div className="panel comm">
       <div className="panel-scroll">
-        {items.length === 0 && <div className="empty">No commentary yet.</div>}
+        {items.length === 0 && (
+          <div className="empty">No commentary for this session (available 2024+).</div>
+        )}
         {items.map((m, i) => (
           <div key={items.length - i} className="comm-row">
-            <span className="comm-time dim tnum">{m.utc ? m.utc.slice(11, 19) : ""}</span>
-            <span className="comm-msg">{m.message}</span>
+            <span className="comm-time dim tnum">{m.utc ? m.utc.slice(11, 16) : ""}</span>
+            <div className="comm-body">
+              {m.title && <div className="comm-title">{m.title}</div>}
+              {m.message && <div className="comm-msg">{m.message}</div>}
+            </div>
           </div>
         ))}
       </div>

@@ -34,7 +34,6 @@ pub const TOPICS: &[&str] = &[
     "ExtrapolatedClock",
     "WeatherData",
     "RaceControlMessages",
-    "TlaRcm",
     "TeamRadio",
     "TimingData",
     "TimingAppData",

@@ -41,6 +41,7 @@ pub struct SessionState {
 #[serde(rename_all = "camelCase")]
 pub struct CommentaryMsg {
     pub utc: Option<String>,
+    pub title: Option<String>,
     pub message: Option<String>,
 }
 

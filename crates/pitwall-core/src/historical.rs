@@ -26,7 +26,6 @@ const STREAM_TOPICS: &[&str] = &[
     "ExtrapolatedClock",
     "WeatherData",
     "RaceControlMessages",
-    "TlaRcm",
     "TeamRadio",
     "TimingData",
     "TimingAppData",
@@ -136,6 +135,17 @@ pub async fn fetch(year: i32, gp: &str, session: &str, opts: &FetchOptions) -> R
         tracing::debug!(topic, kept, "fetched topic");
     }
 
+    // Real live-blog commentary (Monterosa), via ContentStreams. Best-effort;
+    // present for 2024+ sessions (2023 and earlier used the now-defunct
+    // ScribbleLive, which yields nothing).
+    match fetch_commentary(&client, &base, cache).await {
+        Ok(comm) => {
+            tracing::debug!(commentary = comm.len(), "fetched commentary");
+            msgs.extend(comm);
+        }
+        Err(e) => tracing::debug!(error = %e, "no commentary"),
+    }
+
     msgs.sort_by_key(|m| m.offset_ms);
     let duration_ms = msgs.last().map(|m| m.offset_ms).unwrap_or(0);
     Ok(Fetched {
@@ -213,6 +223,102 @@ pub async fn index(year: i32, cache_dir: Option<&Path>) -> Result<Vec<EventInfo>
 
 fn strip_bom(s: &str) -> &str {
     s.trim_start_matches('\u{feff}')
+}
+
+/// Fetch F1's live-blog commentary for a session: ContentStreams → the Monterosa
+/// commentary URI → that event's `history.json` (a static timeline of posts).
+/// Emits synthetic `Commentary` messages at offset 0 (shown as the session's
+/// commentary log). Returns an empty vec when no Monterosa stream is present.
+async fn fetch_commentary(
+    client: &reqwest::Client,
+    base: &str,
+    cache: Option<&Path>,
+) -> Result<Vec<RawMessage>> {
+    let cs_txt = get_text(client, &format!("{base}ContentStreams.json"), cache).await?;
+    let cs: serde_json::Value = serde_json::from_str(strip_bom(&cs_txt))?;
+    let uri = cs["Streams"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|s| s["Type"] == "Commentary")
+        .and_then(|s| s["Uri"].as_str())
+        .unwrap_or_default();
+
+    let Some((host, event)) = parse_monterosa_uri(uri) else {
+        return Ok(Vec::new());
+    };
+    if event.len() < 2 {
+        return Ok(Vec::new());
+    }
+    let hist_url = format!(
+        "https://{host}/events/{}/{}/history.json",
+        &event[..2],
+        event
+    );
+    let hist_txt = get_text(client, &hist_url, cache).await?;
+    let hist: serde_json::Value = serde_json::from_str(strip_bom(&hist_txt))?;
+
+    let mut out = Vec::new();
+    for post in hist["timeline"].as_array().into_iter().flatten() {
+        let all = &post["custom_fields"]["all"];
+        let title = all["title"].as_str().unwrap_or("").trim().to_string();
+        let text = strip_html(all["text"].as_str().unwrap_or(""));
+        if title.is_empty() && text.is_empty() {
+            continue; // media-only post (image/video/social)
+        }
+        out.push(RawMessage {
+            topic: "Commentary".into(),
+            payload: serde_json::json!({
+                "Title": title,
+                "Text": text,
+                "Utc": post["published_at_iso"].as_str().unwrap_or_default(),
+            }),
+            utc: None,
+            offset_ms: 0,
+        });
+    }
+    Ok(out)
+}
+
+/// Pull the `h` (CDN host) and `e` (event id) query params from a Monterosa
+/// commentary embed URI. `None` for non-Monterosa (e.g. the old ScribbleLive).
+fn parse_monterosa_uri(uri: &str) -> Option<(String, String)> {
+    let url = reqwest::Url::parse(uri).ok()?;
+    let mut host = None;
+    let mut event = None;
+    for (k, v) in url.query_pairs() {
+        match k.as_ref() {
+            "h" => host = Some(v.to_string()),
+            "e" => event = Some(v.to_string()),
+            _ => {}
+        }
+    }
+    Some((host.unwrap_or_else(|| "cdn.monterosa.cloud".into()), event?))
+}
+
+/// Strip HTML tags and decode a few common entities to plain text.
+fn strip_html(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut in_tag = false;
+    for c in s.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => out.push(c),
+            _ => {}
+        }
+    }
+    out.replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&rsquo;", "'")
+        .replace("&lsquo;", "'")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Fetch a URL as text, caching the raw body on disk when `cache` is set.
