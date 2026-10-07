@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use pitwall_core::{historical, spawn_replay, Engine, ReplayHandle};
+use pitwall_core::{compute_events, historical, spawn_replay, Engine, ReplayHandle, SessionEvent};
 use pitwall_schema::{ReplayControl, SourceKind};
 use serde::Serialize;
 use tokio::sync::{mpsc, Mutex};
@@ -22,6 +22,7 @@ struct Inner {
     name: Option<String>,
     loading: bool,
     error: Option<String>,
+    events: Vec<SessionEvent>,
 }
 
 /// What the picker polls while a session loads.
@@ -47,6 +48,16 @@ impl Hub {
         let mut inner = self.inner.lock().await;
         inner.replay = Some(handle);
         inner.name = Some(name);
+    }
+
+    /// Set the timeline events for the current session.
+    pub async fn set_events(&self, events: Vec<SessionEvent>) {
+        self.inner.lock().await.events = events;
+    }
+
+    /// The current session's timeline events.
+    pub async fn events(&self) -> Vec<SessionEvent> {
+        self.inner.lock().await.events.clone()
     }
 
     /// The current replay control sender, if any.
@@ -83,6 +94,7 @@ impl Hub {
             }
             inner.replay = None;
             inner.name = None;
+            inner.events.clear();
         }
         self.engine.reset_state(Default::default());
 
@@ -96,6 +108,7 @@ impl Hub {
         match historical::fetch(year, &event, &session, &opts).await {
             Ok(fetched) => {
                 self.engine.reset_state(Default::default());
+                let events = compute_events(&fetched.recording);
                 let handle = spawn_replay(
                     self.engine.clone(),
                     fetched.recording,
@@ -106,6 +119,7 @@ impl Hub {
                 let mut inner = self.inner.lock().await;
                 inner.replay = Some(handle);
                 inner.name = Some(fetched.name);
+                inner.events = events;
                 inner.loading = false;
             }
             Err(e) => {

@@ -158,13 +158,32 @@ impl Transport<'_> {
     }
 
     /// Rebuild state up to `target` from scratch and resync all clients.
+    ///
+    /// For near-instant scrubbing, the high-rate telemetry/position topics
+    /// (`CarData.z`, `Position.z`) are only applied for their latest message
+    /// before `target` — the earlier ones are overwritten anyway, and skipping
+    /// them avoids thousands of base64+inflate decodes per seek.
     fn seek(&mut self, target: u64) {
         let target = target.min(self.duration_ms);
         let mut state = SessionState::default();
+        let mut last_car = None;
+        let mut last_pos = None;
         let mut i = 0;
         while i < self.msgs.len() && self.msgs[i].offset_ms <= target {
-            let _ = parser::apply(&mut state, &self.msgs[i]);
+            match self.msgs[i].base_topic() {
+                "CarData" => last_car = Some(i),
+                "Position" => last_pos = Some(i),
+                _ => {
+                    let _ = parser::apply(&mut state, &self.msgs[i]);
+                }
+            }
             i += 1;
+        }
+        if let Some(j) = last_car {
+            let _ = parser::apply(&mut state, &self.msgs[j]);
+        }
+        if let Some(j) = last_pos {
+            let _ = parser::apply(&mut state, &self.msgs[j]);
         }
         self.engine.reset_state(state);
         self.playhead_ms = target;

@@ -55,6 +55,7 @@ pub fn router(hub: Arc<Hub>) -> Router {
         .route("/api/index/:year", get(index_handler))
         .route("/api/session/load", post(load_handler))
         .route("/api/session/status", get(session_status_handler))
+        .route("/api/events", get(events_handler))
         .with_state(state);
 
     match find_web_dir() {
@@ -156,6 +157,10 @@ async fn load_handler(State(state): State<AppState>, Json(req): Json<LoadRequest
 
 async fn session_status_handler(State(state): State<AppState>) -> Json<hub::LoadStatus> {
     Json(state.hub.status().await)
+}
+
+async fn events_handler(State(state): State<AppState>) -> Json<Vec<pitwall_core::SessionEvent>> {
+    Json(state.hub.events().await)
 }
 
 async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {

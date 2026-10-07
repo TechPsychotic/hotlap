@@ -7,6 +7,7 @@
 //!
 pub mod decode;
 pub mod engine;
+pub mod events;
 pub mod historical;
 pub mod merge;
 pub mod parser;
@@ -14,6 +15,7 @@ pub mod recording;
 pub mod replay;
 
 pub use engine::Engine;
+pub use events::{compute_events, SessionEvent};
 pub use recording::{Recorder, Recording};
 pub use replay::{spawn as spawn_replay, ReplayHandle};
 

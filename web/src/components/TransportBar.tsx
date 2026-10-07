@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 
+interface SessionEvent {
+  offsetMs: number;
+  kind: string;
+  label: string;
+}
+
 function fmt(ms?: number | null): string {
   if (ms == null) return "0:00";
   const s = Math.floor(ms / 1000);
@@ -12,21 +18,34 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 export default function TransportBar() {
   const replay = useStore((s) => s.replay);
   const sendControl = useStore((s) => s.sendControl);
+  const sessionKey = useStore(
+    (s) => `${s.state.session?.meetingName ?? ""}|${s.state.session?.sessionName ?? ""}`,
+  );
   const [scrub, setScrub] = useState<number | null>(null);
+  const [events, setEvents] = useState<SessionEvent[]>([]);
   const dragging = useRef(false);
 
-  // Keep the slider in sync with incoming status unless the user is scrubbing.
   useEffect(() => {
     if (!dragging.current) setScrub(null);
   }, [replay?.positionMs]);
+
+  // (Re)load timeline markers when the session changes.
+  useEffect(() => {
+    let ok = true;
+    fetch("/api/events")
+      .then((r) => r.json())
+      .then((e) => ok && setEvents(Array.isArray(e) ? e : []))
+      .catch(() => ok && setEvents([]));
+    return () => {
+      ok = false;
+    };
+  }, [sessionKey]);
 
   if (!replay) return null;
 
   const dur = replay.durationMs ?? 0;
   const pos = scrub ?? replay.positionMs;
   const ratio = dur > 0 ? pos / dur : 0;
-  // Always include the live speed so the selector reflects reality even if the
-  // speed was set outside the preset list.
   const speeds = Array.from(new Set([...SPEEDS, replay.speed])).sort((a, b) => a - b);
 
   return (
@@ -40,21 +59,35 @@ export default function TransportBar() {
       </button>
 
       <span className="tnum pos">{fmt(pos)}</span>
-      <input
-        type="range"
-        min={0}
-        max={1000}
-        value={Math.round(ratio * 1000)}
-        className="seek"
-        onMouseDown={() => (dragging.current = true)}
-        onInput={(e) => setScrub((Number(e.currentTarget.value) / 1000) * dur)}
-        onChange={(e) => {
-          dragging.current = false;
-          const offsetMs = Math.round((Number(e.currentTarget.value) / 1000) * dur);
-          sendControl({ action: "seek", offsetMs });
-          setScrub(null);
-        }}
-      />
+      <div className="seek-wrap">
+        <input
+          type="range"
+          min={0}
+          max={1000}
+          value={Math.round(ratio * 1000)}
+          className="seek"
+          onMouseDown={() => (dragging.current = true)}
+          onInput={(e) => setScrub((Number(e.currentTarget.value) / 1000) * dur)}
+          onChange={(e) => {
+            dragging.current = false;
+            const offsetMs = Math.round((Number(e.currentTarget.value) / 1000) * dur);
+            sendControl({ action: "seek", offsetMs });
+            setScrub(null);
+          }}
+        />
+        {dur > 0 && (
+          <div className="seek-marks">
+            {events.map((ev, i) => (
+              <span
+                key={i}
+                className={`seek-mark mk-${ev.kind}`}
+                style={{ left: `${Math.min(100, Math.max(0, (ev.offsetMs / dur) * 100))}%` }}
+                title={`${ev.label} · ${fmt(ev.offsetMs)}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
       <span className="tnum dur dim">{fmt(dur)}</span>
 
       <select

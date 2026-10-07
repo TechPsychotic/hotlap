@@ -137,8 +137,11 @@ pub async fn fetch(year: i32, gp: &str, session: &str, opts: &FetchOptions) -> R
 
     // Real live-blog commentary (Monterosa), via ContentStreams. Best-effort;
     // present for 2024+ sessions (2023 and earlier used the now-defunct
-    // ScribbleLive, which yields nothing).
-    match fetch_commentary(&client, &base, cache).await {
+    // ScribbleLive, which yields nothing). Posts are time-synced to the replay
+    // timeline via a feed Utc+offset anchor.
+    let duration_pre = msgs.last().map(|m| m.offset_ms).unwrap_or(0);
+    let start_epoch = recording_start_epoch(&msgs);
+    match fetch_commentary(&client, &base, cache, start_epoch, duration_pre).await {
         Ok(comm) => {
             tracing::debug!(commentary = comm.len(), "fetched commentary");
             msgs.extend(comm);
@@ -233,6 +236,8 @@ async fn fetch_commentary(
     client: &reqwest::Client,
     base: &str,
     cache: Option<&Path>,
+    start_epoch: Option<i64>,
+    duration_ms: u64,
 ) -> Result<Vec<RawMessage>> {
     let cs_txt = get_text(client, &format!("{base}ContentStreams.json"), cache).await?;
     let cs: serde_json::Value = serde_json::from_str(strip_bom(&cs_txt))?;
@@ -266,6 +271,13 @@ async fn fetch_commentary(
         if title.is_empty() && text.is_empty() {
             continue; // media-only post (image/video/social)
         }
+        // Time-sync to the replay timeline when we have an anchor.
+        let offset_ms = match (start_epoch, post["published_at"].as_i64()) {
+            (Some(start), Some(published)) => {
+                (((published - start) * 1000).max(0) as u64).min(duration_ms)
+            }
+            _ => 0,
+        };
         out.push(RawMessage {
             topic: "Commentary".into(),
             payload: serde_json::json!({
@@ -274,10 +286,47 @@ async fn fetch_commentary(
                 "Utc": post["published_at_iso"].as_str().unwrap_or_default(),
             }),
             utc: None,
-            offset_ms: 0,
+            offset_ms,
         });
     }
     Ok(out)
+}
+
+/// Epoch (seconds) of the recording's t=0, from the first feed message carrying
+/// both an absolute `Utc` and a relative offset.
+fn recording_start_epoch(msgs: &[RawMessage]) -> Option<i64> {
+    for m in msgs {
+        let utc = match m.base_topic() {
+            "ExtrapolatedClock" => m.payload.get("Utc").and_then(|v| v.as_str()),
+            "RaceControlMessages" => m.payload["Messages"]
+                .as_array()
+                .and_then(|a| a.first())
+                .or_else(|| m.payload["Messages"].get("0"))
+                .and_then(|m0| m0.get("Utc"))
+                .and_then(|v| v.as_str()),
+            _ => None,
+        };
+        if let Some(utc) = utc {
+            if let Some(epoch) = iso_epoch(utc) {
+                return Some(epoch - (m.offset_ms as i64) / 1000);
+            }
+        }
+    }
+    None
+}
+
+/// Parse an ISO-8601 timestamp to a Unix epoch (seconds), tolerating a missing
+/// timezone (treated as UTC).
+fn iso_epoch(s: &str) -> Option<i64> {
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+        return Some(dt.timestamp());
+    }
+    for fmt in ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S"] {
+        if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(s, fmt) {
+            return Some(ndt.and_utc().timestamp());
+        }
+    }
+    None
 }
 
 /// Pull the `h` (CDN host) and `e` (event id) query params from a Monterosa

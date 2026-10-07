@@ -34,6 +34,8 @@ interface Store {
   /** Accumulated unique track positions (the circuit outline), maintained in
    *  the store so it survives panels being hidden/unmounted. */
   trail: XY[];
+  /** Ordered racing line of a reference car — a clean path for the SVG track. */
+  trackPath: XY[];
   /** Live sector delta per driver (racing number), updated as sectors complete. */
   sectorDeltas: Record<string, SectorDelta>;
   /** The driver (racing number) focused by detail panels. */
@@ -71,6 +73,36 @@ function accumulateTrail(state: SessionState): boolean {
 function resetTrail() {
   trailKeys = new Set();
   trailPts = [];
+}
+
+// An ordered path traced by a single reference car — a clean circuit outline.
+let trackRef: string | null = null;
+let trackPts: XY[] = [];
+
+function accumulateTrackPath(state: SessionState): boolean {
+  const pos = state.position ?? {};
+  if (!trackRef) {
+    for (const [num, p] of Object.entries(pos)) {
+      if (p.x != null && p.y != null && (p.x !== 0 || p.y !== 0)) {
+        trackRef = num;
+        break;
+      }
+    }
+  }
+  const p = trackRef ? pos[trackRef] : undefined;
+  if (!p || p.x == null || p.y == null || (p.x === 0 && p.y === 0)) return false;
+  const last = trackPts[trackPts.length - 1];
+  const moved = last ? Math.hypot(p.x - last.x, p.y - last.y) : Infinity;
+  if (moved > 80 && trackPts.length < 3000) {
+    trackPts.push({ x: p.x, y: p.y });
+    return true;
+  }
+  return false;
+}
+
+function resetTrackPath() {
+  trackRef = null;
+  trackPts = [];
 }
 
 /** Parse "M:SS.mmm" or "SS.mmm" to milliseconds. */
@@ -156,6 +188,7 @@ export const useStore = create<Store>((set, get) => ({
   state: EMPTY_STATE,
   replay: null,
   trail: [],
+  trackPath: [],
   sectorDeltas: {},
   focus: null,
   setFocus: (num) => set({ focus: num }),
@@ -165,18 +198,27 @@ export const useStore = create<Store>((set, get) => ({
       case "snapshot": {
         // A snapshot means a fresh/reseeked session: restart derived state.
         resetTrail();
+        resetTrackPath();
         resetSectors();
         accumulateTrail(msg.state);
-        set({ state: msg.state, trail: [...trailPts], sectorDeltas: updateSectors(msg.state) ?? {} });
+        accumulateTrackPath(msg.state);
+        set({
+          state: msg.state,
+          trail: [...trailPts],
+          trackPath: [...trackPts],
+          sectorDeltas: updateSectors(msg.state) ?? {},
+        });
         break;
       }
       case "update": {
         const next = mergePatch(get().state, msg.patch);
         const trailChanged = accumulateTrail(next);
+        const pathChanged = accumulateTrackPath(next);
         const deltas = updateSectors(next);
         set({
           state: next,
           ...(trailChanged ? { trail: [...trailPts] } : {}),
+          ...(pathChanged ? { trackPath: [...trackPts] } : {}),
           ...(deltas ? { sectorDeltas: deltas } : {}),
         });
         break;

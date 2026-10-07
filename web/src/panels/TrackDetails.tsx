@@ -1,13 +1,13 @@
-// Track Details: the circuit map (from position data — present on recorded/
-// historical sessions, gated on the live free feed) with live flag-state
-// highlighting, current weather alongside, and the race-control log below.
+// Track Details: a clean SVG track map (2D/3D), current weather, and the
+// race-control log — all inline and compact.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore, teamColour } from "../store";
+import type { XY } from "../store";
 import type { RaceControlMessage } from "../types.gen";
 
 const VB = 1000;
-const PAD = 60;
+const PAD = 70;
 
 type FlagKind = "none" | "green" | "yellow" | "double" | "sc" | "vsc" | "red";
 interface FlagState {
@@ -25,7 +25,6 @@ const FLAG_LABEL: Record<FlagKind, string> = {
   red: "Red Flag",
 };
 
-/** Derive the current flag state from track status + recent race control. */
 function computeFlag(status: string | null | undefined, rc: RaceControlMessage[]): FlagState {
   switch (status) {
     case "5":
@@ -59,10 +58,18 @@ function flagColor(flag?: string | null, category?: string | null): string {
   return "var(--dim)";
 }
 
-function TrackMapView() {
+function bounds(pts: XY[]) {
+  if (pts.length === 0) return null;
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+}
+
+function TrackMapView({ view3d }: { view3d: boolean }) {
   const positions = useStore((s) => s.state.position);
   const drivers = useStore((s) => s.state.drivers);
   const trail = useStore((s) => s.trail);
+  const path = useStore((s) => s.trackPath);
   const focus = useStore((s) => s.focus);
   const setFocus = useStore((s) => s.setFocus);
 
@@ -73,55 +80,70 @@ function TrackMapView() {
       .map(([num, p]) => ({ num, x: p.x as number, y: p.y as number }));
   }, [positions]);
 
-  const bounds = useMemo(() => {
-    const src = trail.length > 20 ? trail : live;
-    if (src.length === 0) return null;
-    const xs = src.map((p) => p.x);
-    const ys = src.map((p) => p.y);
-    return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
-  }, [trail, live]);
+  const b = useMemo(() => bounds(path.length > 10 ? path : trail.length ? trail : live), [path, trail, live]);
 
   const project = (x: number, y: number) => {
-    if (!bounds) return { cx: VB / 2, cy: VB / 2 };
-    const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY, 1);
+    if (!b) return { cx: VB / 2, cy: VB / 2 };
+    const span = Math.max(b.maxX - b.minX, b.maxY - b.minY, 1);
     const scale = (VB - 2 * PAD) / span;
-    const ox = (VB - (bounds.maxX - bounds.minX) * scale) / 2;
-    const oy = (VB - (bounds.maxY - bounds.minY) * scale) / 2;
-    return { cx: ox + (x - bounds.minX) * scale, cy: VB - oy - (y - bounds.minY) * scale };
+    const ox = (VB - (b.maxX - b.minX) * scale) / 2;
+    const oy = (VB - (b.maxY - b.minY) * scale) / 2;
+    return { cx: ox + (x - b.minX) * scale, cy: VB - oy - (y - b.minY) * scale };
   };
 
-  if (live.length === 0 && trail.length === 0) {
+  const d = useMemo(() => {
+    if (path.length < 10) return "";
+    return (
+      path
+        .map((p, i) => {
+          const { cx, cy } = project(p.x, p.y);
+          return `${i === 0 ? "M" : "L"}${cx.toFixed(1)} ${cy.toFixed(1)}`;
+        })
+        .join(" ") + " Z"
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, b]);
+
+  if (live.length === 0 && path.length === 0 && trail.length === 0) {
     return <div className="empty">No position data (live positions require F1 TV; available on recorded sessions).</div>;
   }
 
   return (
-    <svg viewBox={`0 0 ${VB} ${VB}`} className="trackmap">
-      {trail.map((p, i) => {
-        const { cx, cy } = project(p.x, p.y);
-        return <circle key={i} cx={cx} cy={cy} r={3.5} className="tm-track" />;
-      })}
-      {live.map((p) => {
-        const { cx, cy } = project(p.x, p.y);
-        const d = drivers?.[p.num] ?? {};
-        const isFocus = focus === p.num;
-        const r = isFocus ? 13 : 9;
-        return (
-          <g key={p.num} onClick={() => setFocus(p.num)} style={{ cursor: "pointer" }}>
-            <circle
-              cx={cx}
-              cy={cy}
-              r={r}
-              fill={teamColour(d.teamColour)}
-              stroke={isFocus ? "var(--fg)" : "rgba(0,0,0,0.55)"}
-              strokeWidth={isFocus ? 3 : 1.5}
-            />
-            <text x={cx} y={cy - r - 5} className="tm-label" textAnchor="middle">
-              {d.tla ?? p.num}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    <div className={`td-map-inner ${view3d ? "is-3d" : ""}`}>
+      <svg viewBox={`0 0 ${VB} ${VB}`} className="trackmap">
+        {d ? (
+          <path d={d} className="tm-line" />
+        ) : (
+          trail.map((p, i) => {
+            const { cx, cy } = project(p.x, p.y);
+            return <circle key={i} cx={cx} cy={cy} r={3.5} className="tm-track" />;
+          })
+        )}
+        {live.map((p) => {
+          const { cx, cy } = project(p.x, p.y);
+          const dr = drivers?.[p.num] ?? {};
+          const isFocus = focus === p.num;
+          const r = isFocus ? 13 : 9;
+          return (
+            <g key={p.num} onClick={() => setFocus(p.num)} style={{ cursor: "pointer" }}>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill={teamColour(dr.teamColour)}
+                stroke={isFocus ? "var(--fg)" : "rgba(0,0,0,0.55)"}
+                strokeWidth={isFocus ? 3 : 1.5}
+              />
+              {isFocus && (
+                <text x={cx} y={cy - r - 5} className="tm-label" textAnchor="middle">
+                  {dr.tla ?? p.num}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
   );
 }
 
@@ -138,17 +160,8 @@ function WeatherColumn() {
       <div className="td-weather-head dim">Weather</div>
       {row("Air", w.airTemp, "°")}
       {row("Track", w.trackTemp, "°")}
-      {row("Humidity", w.humidity, "%")}
-      {row("Pressure", w.pressure)}
-      <div className="tdw-row">
-        <span className="tdw-l">Wind</span>
-        <span className="tdw-v tnum">
-          <span className="wx-wind" style={{ transform: `rotate(${w.windDirection ?? 0}deg)` }}>
-            ↑
-          </span>
-          {w.windSpeed ?? "—"}
-        </span>
-      </div>
+      {row("Hum", w.humidity, "%")}
+      {row("Wind", w.windSpeed)}
       <div className="tdw-row">
         <span className="tdw-l">Rain</span>
         <span className={`tdw-v ${w.rainfall ? "blue" : ""}`}>{w.rainfall ? "WET" : "DRY"}</span>
@@ -161,10 +174,9 @@ export default function TrackDetails() {
   const track = useStore((s) => s.state.trackStatus);
   const messages = useStore((s) => s.state.raceControl) ?? [];
   const items = [...messages].reverse();
+  const [view3d, setView3d] = useState(false);
 
   const flag = computeFlag(track?.status, messages);
-
-  // Flash green for ~1s when the track returns to green.
   const [greenFlash, setGreenFlash] = useState(false);
   const prevStatus = useRef<string | null | undefined>(undefined);
   useEffect(() => {
@@ -184,33 +196,42 @@ export default function TrackDetails() {
     <div className="panel td">
       <div className="td-status">
         <span className={`flag-chip flag-${overlayKind}`}>{FLAG_LABEL[overlayKind]}</span>
-        {flag.sector != null && <span className="dim">Sector {flag.sector}</span>}
+        {flag.sector != null && <span className="dim">S{flag.sector}</span>}
         <span className="dim td-status-msg">{track?.message ?? ""}</span>
+        <div className="td-view">
+          <button className={!view3d ? "on" : ""} onClick={() => setView3d(false)}>
+            2D
+          </button>
+          <button className={view3d ? "on" : ""} onClick={() => setView3d(true)}>
+            3D
+          </button>
+        </div>
       </div>
-      <div className="td-top">
+      <div className="td-main">
         <div className="td-mapwrap">
-          <TrackMapView />
+          <TrackMapView view3d={view3d} />
           {overlayKind !== "none" && <div className={`flag-overlay flag-${overlayKind}`} />}
         </div>
-        <WeatherColumn />
-      </div>
-      <div className="td-rc">
-        <div className="td-rc-head dim">Race Control</div>
-        <div className="td-rc-list">
-          {items.length === 0 && <div className="empty">No messages yet.</div>}
-          {items.map((m, i) => (
-            <div key={items.length - i} className="rc-row">
-              <span className="rc-flag" style={{ background: flagColor(m.flag, m.category) }} />
-              <div className="rc-body">
-                <div className="rc-msg">{m.message}</div>
-                <div className="rc-meta dim">
-                  {m.lap != null && <span>L{m.lap}</span>}
-                  {m.category && <span>{m.category}</span>}
-                  {m.utc && <span>{m.utc.slice(11, 19)}</span>}
+        <div className="td-side">
+          <WeatherColumn />
+          <div className="td-rc">
+            <div className="td-rc-head dim">Race Control</div>
+            <div className="td-rc-list">
+              {items.length === 0 && <div className="empty">No messages.</div>}
+              {items.map((m, i) => (
+                <div key={items.length - i} className="rc-row">
+                  <span className="rc-flag" style={{ background: flagColor(m.flag, m.category) }} />
+                  <div className="rc-body">
+                    <div className="rc-msg">{m.message}</div>
+                    <div className="rc-meta dim">
+                      {m.lap != null && <span>L{m.lap}</span>}
+                      {m.utc && <span>{m.utc.slice(11, 19)}</span>}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>

@@ -183,6 +183,7 @@ async fn run_replay(path: PathBuf, serve: ServeArgs, speed: f64, tui: bool) -> R
     );
 
     let engine = Engine::new(4096);
+    let events = pitwall_core::compute_events(&recording);
     let handle = pitwall_core::spawn_replay(
         engine.clone(),
         recording,
@@ -199,6 +200,7 @@ async fn run_replay(path: PathBuf, serve: ServeArgs, speed: f64, tui: bool) -> R
     if serve.serve {
         let hub = pitwall_server::Hub::new(engine, historical_cache_dir());
         hub.set_replay(handle, path.display().to_string()).await;
+        hub.set_events(events).await;
         if !serve.no_open {
             open_browser(&format!("http://{}", serve.addr));
         }
@@ -244,6 +246,7 @@ async fn run_historical(
     );
 
     let engine = Engine::new(4096);
+    let events = pitwall_core::compute_events(&fetched.recording);
     let handle = pitwall_core::spawn_replay(
         engine.clone(),
         fetched.recording,
@@ -254,6 +257,7 @@ async fn run_historical(
     if serve.serve {
         let hub = pitwall_server::Hub::new(engine, historical_cache_dir());
         hub.set_replay(handle, fetched.name).await;
+        hub.set_events(events).await;
         if !serve.no_open {
             open_browser(&format!("http://{}", serve.addr));
         }
