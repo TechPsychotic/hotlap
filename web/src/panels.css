@@ -213,19 +213,24 @@
 
 /* Telemetry */
 .tel { gap: 0; }
-.tel-head { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-.tel-name { font-size: 12px; color: var(--fg-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tel-head { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--line); flex: none; flex-wrap: wrap; }
+.tel-head select { flex: none; }
+.tel-stat { font-size: 11px; color: var(--dim); }
+.tel-stat b { font-size: 15px; color: var(--fg); margin-right: 1px; }
+.tel-name { font-size: 11px; color: var(--fg-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .badge.drs-on { color: var(--green); border-color: var(--green); }
 .tel-readouts { display: flex; gap: 6px; padding: 10px; }
 .tel-readouts .ro { flex: 1; text-align: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 4px; }
 .tel-readouts .ro-v { font-size: 26px; font-weight: 700; line-height: 1; }
 .tel-readouts .ro-l { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
-.tel-compare { display: flex; gap: 4px; align-items: center; padding: 4px 10px; flex-wrap: wrap; font-size: 11px; max-height: 56px; overflow: auto; }
-.cmp-chip { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--dim); }
+.tel-compare { display: flex; gap: 4px; align-items: center; padding: 4px 10px; flex: none; font-size: 11px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: none; }
+.tel-compare::-webkit-scrollbar { display: none; }
+.cmp-chip { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--dim); flex: none; }
 .cmp-chip.on { color: var(--fg); background: var(--panel); border-width: 2px; }
-.tel-legend { display: flex; gap: 14px; padding: 2px 12px 0; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; flex-wrap: wrap; }
-.tel-plot { flex: 1; min-height: 120px; padding: 2px 10px 0; }
-.tel-meters { padding: 8px 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+.tel-legend { display: flex; gap: 12px; padding: 3px 12px 0; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; flex: none; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.tel-legend::-webkit-scrollbar { display: none; }
+.tel-plot { flex: 1 1 0; min-height: 48px; padding: 2px 8px 0; }
+.tel-meters { padding: 6px 10px 10px; display: flex; flex-direction: column; gap: 6px; flex: none; }
 .meter { display: flex; align-items: center; gap: 8px; }
 .meter-l { width: 30px; font-size: 11px; }
 .meter-v { width: 30px; text-align: right; font-size: 11px; }

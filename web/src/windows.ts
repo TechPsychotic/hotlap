@@ -31,12 +31,13 @@ export const PANELS: PanelDef[] = [
   { id: "trackdetails", title: "Track Details", component: "trackDetails" },
   { id: "telemetry", title: "Telemetry", component: "telemetry" },
   { id: "strategy", title: "Strategy", component: "strategy" },
-  { id: "weather", title: "Weather", component: "weather" },
-  { id: "radio", title: "Team Radio", component: "radio", defaultOpen: false },
+  // Weather is closed by default — it also lives inside Track Details.
+  { id: "weather", title: "Weather", component: "weather", defaultOpen: false },
+  { id: "radio", title: "Team Radio", component: "radio" },
   { id: "prediction", title: "Prediction", component: "prediction", defaultOpen: false },
 ];
 
-const KEY = "pw.windows.v2";
+const KEY = "pw.windows.v3";
 const MIN_W = 240;
 const MIN_H = 140;
 export const TASKBAR_H = 34;
@@ -62,9 +63,10 @@ export function layout(): Record<string, WinRect> {
     trackdetails: { x: rightX, y: g, w: rightW, h: tdH },
     telemetry: { x: rightX, y: botY, w: telW, h: botH },
     strategy: { x: sideX, y: botY, w: sideW, h: stratH },
-    weather: { x: sideX, y: botY + stratH + g, w: sideW, h: botH - stratH - g },
+    // Team Radio takes the bottom-right slot by default.
+    radio: { x: sideX, y: botY + stratH + g, w: sideW, h: botH - stratH - g },
     // Closed by default; open over the middle area.
-    radio: { x: rightX, y: Math.round(botY + botH * 0.1), w: Math.min(420, telW), h: Math.round(botH * 0.8) },
+    weather: { x: rightX, y: Math.round(botY + botH * 0.2), w: Math.min(360, telW), h: Math.round(botH * 0.6) },
     prediction: { x: Math.round(W * 0.28), y: Math.round(g + H * 0.12), w: 380, h: Math.round(H * 0.7) },
   };
 }
