@@ -29,11 +29,47 @@ code locations, approach, and open questions so it can be executed directly.
 
 ### To do (landing page)
 
-- [ ] **Launch sessions from the landing page instead of the generic "Enter
-  Telemetry" button** — make the next-race card and the calendar race cards
-  clickable to load + enter that session's telemetry directly. *(Exact desired
-  behaviour to be confirmed — e.g. click a past race → replay it; click upcoming
-  → ? )*
+- [ ] **Replace the single "Enter Telemetry" button with two entry points:**
+  - **Live session** — enters the live telemetry feed; **greyed out / disabled
+    when no live session is active** (needs a liveness check — the live feed is
+    F1-TV-gated/401 since 2025, so this will usually be disabled; gate on whether
+    a live source is available/connected).
+  - **Historical telemetry** — enters the historical flow (season/event/session
+    picker → load → workspace), i.e. the existing replay path.
+  - *(Optional follow-on: make the calendar/next-race cards clickable to jump
+    straight into that race's historical session.)*
+- [ ] **Calendar: show every weekend session** (Practice 1/2/3, Sprint
+  Qualifying, Sprint, Qualifying, Race) — not just the race — each with its own
+  local-zone date/time. Jolpica already returns these per race
+  (`FirstPractice` / `SecondPractice` / `ThirdPractice` / `SprintQualifying` /
+  `Sprint` / `Qualifying` + the race date/time); sprint weekends omit FP2/FP3.
+  The next-race **countdown should target the next *session*** (not only the
+  race).
+
+### Workflow — landing-page round (plan only; do NOT implement yet)
+
+1. **Calendar session model** (`Landing.tsx`) — parse each Jolpica race into an
+   ordered `sessions: [{ kind, dt }]` from `FirstPractice`, `SecondPractice`,
+   `ThirdPractice`, `SprintQualifying`, `Sprint`, `Qualifying`, and the race
+   itself; drop absent ones (sprint weekends). Compute the next upcoming
+   *session* across all races (`earliest dt > now`) and drive the countdown off
+   it.
+2. **Calendar UI** — each race card lists its sessions (label + local
+   date/time); highlight the next session; keep past sessions/races dimmed.
+   Consider an expandable card to avoid clutter.
+3. **Two entry points** — replace the single "Enter Telemetry" with **Live
+   session** and **Historical telemetry** buttons. Historical → the existing
+   picker flow into the workspace.
+4. **Liveness gate** — add a cheap signal the landing can read (e.g.
+   `GET /api/live/status`, or reuse `/api/replay/status` + a live-source flag);
+   **disable the Live button when no live source is available**. In practice it
+   stays disabled (2025+ live feed is F1-TV-gated/401 without creds).
+5. **(Optional) Clickable cards** — a race/session card → `POST
+   /api/session/load` (map Jolpica `raceName` → the archive event name used by
+   `GET /api/index/:year`, and the chosen session kind) → enter the workspace.
+6. **Verify** — all sessions listed in local TZ; countdown targets the next
+   session; Live disabled with no live source; Historical opens the picker;
+   (cards load their session).
 
 ## Requested (2026-10-07, round 3) — done
 
