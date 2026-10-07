@@ -139,30 +139,124 @@ function Quali({ pred }: { pred: QualiPrediction }) {
   );
 }
 
-function Race({ state, order }: { state: SessionState; order: string[] }) {
+// Approximate time lost on a pit stop (track-dependent); used for undercut math.
+const PIT_LOSS_S = 22;
+const UNDERCUT_WINDOW_S = 2.5; // within this of the car ahead, a stop likely jumps it
+const TYRE_LETTER: Record<string, string> = {
+  SOFT: "S",
+  MEDIUM: "M",
+  HARD: "H",
+  INTERMEDIATE: "I",
+  WET: "W",
+};
+
+function parseSecs(v?: string | null): number | null {
+  if (!v || /L/i.test(v)) return null; // "" or lapped ("1L"/"LAP n")
+  const m = v.match(/-?\d+\.?\d*/);
+  return m ? parseFloat(m[0]) : null;
+}
+
+function Race({
+  state,
+  order,
+}: {
+  state: SessionState;
+  order: string[];
+}) {
+  const timing = state.timing ?? {};
+  const drivers = state.drivers ?? {};
+  const stints = state.stints ?? {};
+  const lap = state.lapCount?.currentLap;
+  const total = state.lapCount?.totalLaps;
+
+  const tla = (n: string) => drivers[n]?.tla ?? n;
+  const lastMs = (n: string) => lapMs(timing[n]?.lastLapTime?.value);
+  const compound = (n: string) => stints[n]?.[stints[n].length - 1]?.compound ?? undefined;
+  const gapLeader = (n: string) => parseSecs(timing[n]?.gapToLeader) ?? 0;
+
   const podium = order.slice(0, 3);
-  const names = podium.map((n) => state.drivers?.[n]?.tla ?? n);
+  const p3 = podium[2];
+
+  // Podium threats: cars just behind P3 and lapping quicker than the P3 runner.
+  const threats = p3
+    ? order.slice(3, 9).filter((n) => {
+        const behind = gapLeader(n) - gapLeader(p3);
+        const lm = lastMs(n);
+        const pm = lastMs(p3);
+        return behind > 0 && behind < 5 && lm != null && pm != null && lm < pm;
+      })
+    : [];
+
+  // Undercut windows: a driver within UNDERCUT_WINDOW_S of the car ahead.
+  const rows = order.map((n, i) => {
+    const ahead = i > 0 ? order[i - 1] : null;
+    const interval = parseSecs(timing[n]?.intervalToAhead);
+    const undercut = ahead != null && interval != null && interval > 0 && interval <= UNDERCUT_WINDOW_S;
+    return { n, pos: i + 1, interval, undercut, ahead };
+  });
+  const undercuts = rows.filter((r) => r.undercut);
+
+  let summary = `Lap ${lap ?? "?"}/${total ?? "?"}. Projected podium: ${podium.map(tla).join(" · ") || "—"}.`;
+  if (threats.length) summary += ` Threat: ${threats.map(tla).join(", ")} closing on the podium.`;
+  if (undercuts.length)
+    summary += ` Undercut window: ${undercuts.slice(0, 3).map((r) => `${tla(r.n)} on ${tla(r.ahead!)}`).join(", ")}.`;
+
   return (
     <>
-      <div className="pred-summary">
-        Projected podium (naive, current order): {names.join(" · ") || "—"}.
-      </div>
+      <div className="pred-summary">{summary}</div>
       <div className="panel-scroll">
         <div className="podium">
           {podium.map((n, i) => {
-            const d = state.drivers?.[n] ?? {};
+            const d = drivers[n] ?? {};
             return (
               <div key={n} className={`podium-step p${i + 1}`}>
                 <div className="podium-pos">P{i + 1}</div>
                 <span className="bar" style={{ background: teamColour(d.teamColour) }} />
                 <div className="podium-tla">{d.tla ?? n}</div>
+                {threats.length === 0 && i === 2 && <div className="pred-conf dim">clear</div>}
               </div>
             );
           })}
         </div>
+
+        <table className="pred-table">
+          <thead>
+            <tr>
+              <th className="r">P</th>
+              <th>Drv</th>
+              <th className="c">Tyre</th>
+              <th className="r">Pit</th>
+              <th>Int</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, 12).map((r) => {
+              const d = drivers[r.n] ?? {};
+              const comp = compound(r.n);
+              const isThreat = threats.includes(r.n);
+              return (
+                <tr key={r.n} className="pred-row">
+                  <td className="r dim tnum">{r.pos}</td>
+                  <td className="drv">
+                    <span className="bar" style={{ background: teamColour(d.teamColour) }} />
+                    <b>{d.tla ?? r.n}</b>
+                  </td>
+                  <td className="c">{comp ? TYRE_LETTER[comp] ?? comp[0] : ""}</td>
+                  <td className="r tnum muted">{timing[r.n]?.numberOfPitStops ?? ""}</td>
+                  <td className="tnum muted">{r.interval != null ? `+${r.interval.toFixed(1)}` : ""}</td>
+                  <td className="pred-st">
+                    {r.undercut && <span className="st-danger">UNDERCUT</span>}
+                    {isThreat && <span className="st-safe"> THREAT</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
         <div className="pred-note dim">
-          Undercut/overcut and tyre-strategy projection: coming next. Narrative will
-          be generated by a small language model in a later phase.
+          Heuristic v1 (pit loss ≈ {PIT_LOSS_S}s). Tyre-deg model and SLM-generated
+          narrative to follow.
         </div>
       </div>
     </>

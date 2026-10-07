@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import urllib.request
+from urllib.parse import quote
 
 BASE = "https://livetiming.formula1.com/static/"
 TIME_RE = re.compile(r"^(\d{2}):(\d{2}):(\d{2})\.(\d{3})")
@@ -50,7 +51,8 @@ def fetch(url, cache_dir):
     if os.path.isfile(path):
         with open(path, "rb") as f:
             return f.read()
-    req = urllib.request.Request(url, headers={"User-Agent": "pitwall-export"})
+    # Percent-encode non-ASCII path chars (e.g. "São_Paulo") for the request.
+    req = urllib.request.Request(quote(url, safe=":/%?=&"), headers={"User-Agent": "pitwall-export"})
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
             data = r.read()
@@ -74,9 +76,18 @@ def find_session_path(year, gp_sub, session_sub, cache_dir):
         name = meeting.get("Name", "")
         if gp_sub not in name.lower():
             continue
-        for s in meeting.get("Sessions", []):
-            if session_sub in s.get("Name", "").lower() or session_sub in s.get("Type", "").lower():
-                return meeting, s, s["Path"]
+        sessions = meeting.get("Sessions", [])
+        # Prefer an exact session Name match (so "Race" doesn't grab "Sprint",
+        # whose Type is also "Race"), then exact Type, then a substring match.
+        for match in (
+            lambda s: s.get("Name", "").lower() == session_sub,
+            lambda s: s.get("Type", "").lower() == session_sub,
+            lambda s: session_sub in s.get("Name", "").lower(),
+            lambda s: session_sub in s.get("Type", "").lower(),
+        ):
+            for s in sessions:
+                if match(s):
+                    return meeting, s, s["Path"]
     raise SystemExit(f"No session matching gp='{gp_sub}' session='{session_sub}' in {year}")
 
 

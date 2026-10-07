@@ -262,6 +262,7 @@
 .podium-step.p1 { padding-bottom: 34px; } .podium-step.p2 { padding-bottom: 22px; } .podium-step.p3 { padding-bottom: 12px; }
 .podium-pos { font-size: 11px; color: var(--dim); }
 .podium-tla { font-weight: 800; font-size: 16px; }
+.pred-conf { font-size: 10px; }
 
 /* Team radio */
 .radio-row { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
