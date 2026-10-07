@@ -32,6 +32,12 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Serve the web GUI with a session picker (pick year/event/session in the UI).
+    Serve {
+        #[command(flatten)]
+        serve: ServeArgs,
+    },
+
     /// Attach to the live F1 Live Timing feed.
     Live {
         #[command(flatten)]
@@ -116,6 +122,9 @@ async fn main() -> Result<()> {
     init_tracing(cli.verbose);
 
     match cli.command {
+        Command::Serve { serve } => {
+            run_serve(serve).await?;
+        }
         Command::Live {
             serve,
             record,
@@ -188,15 +197,27 @@ async fn run_replay(path: PathBuf, serve: ServeArgs, speed: f64, tui: bool) -> R
     }
 
     if serve.serve {
+        let hub = pitwall_server::Hub::new(engine, historical_cache_dir());
+        hub.set_replay(handle, path.display().to_string()).await;
         if !serve.no_open {
             open_browser(&format!("http://{}", serve.addr));
         }
-        pitwall_server::serve(serve.addr, engine, Some(handle.control())).await?;
+        pitwall_server::serve(serve.addr, hub).await?;
     } else {
         // Headless: run the replay to completion.
         handle.join().await;
     }
     Ok(())
+}
+
+/// Serve the web GUI with an empty session picker.
+async fn run_serve(serve: ServeArgs) -> Result<()> {
+    let engine = Engine::new(4096);
+    let hub = pitwall_server::Hub::new(engine, historical_cache_dir());
+    if !serve.no_open {
+        open_browser(&format!("http://{}", serve.addr));
+    }
+    pitwall_server::serve(serve.addr, hub).await
 }
 
 /// Cache directory for raw historical downloads.
@@ -231,10 +252,12 @@ async fn run_historical(
         true,
     );
     if serve.serve {
+        let hub = pitwall_server::Hub::new(engine, historical_cache_dir());
+        hub.set_replay(handle, fetched.name).await;
         if !serve.no_open {
             open_browser(&format!("http://{}", serve.addr));
         }
-        pitwall_server::serve(serve.addr, engine, Some(handle.control())).await?;
+        pitwall_server::serve(serve.addr, hub).await?;
     } else {
         handle.join().await;
     }
@@ -278,10 +301,11 @@ async fn run_live(serve: ServeArgs, record: Option<PathBuf>, auth: Option<String
     });
 
     if serve.serve {
+        let hub = pitwall_server::Hub::new(engine, historical_cache_dir());
         if !serve.no_open {
             open_browser(&format!("http://{}", serve.addr));
         }
-        pitwall_server::serve(serve.addr, engine, None).await?;
+        pitwall_server::serve(serve.addr, hub).await?;
     } else {
         let _ = signalr.await;
     }

@@ -147,6 +147,69 @@ pub async fn fetch(year: i32, gp: &str, session: &str, opts: &FetchOptions) -> R
     })
 }
 
+/// Years with a public archive Index (2022 is gated).
+pub const AVAILABLE_YEARS: &[i32] = &[2018, 2019, 2020, 2021, 2023, 2024, 2025, 2026];
+
+/// One session of an event, for the picker.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SessionEntry {
+    pub name: String,
+    pub kind: String,
+}
+
+/// One event (meeting) with its sessions, for the picker.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EventInfo {
+    pub name: String,
+    pub sessions: Vec<SessionEntry>,
+}
+
+/// List the events and sessions in a season, for a picker UI.
+pub async fn index(year: i32, cache_dir: Option<&Path>) -> Result<Vec<EventInfo>> {
+    let client = reqwest::Client::builder().user_agent(UA).build()?;
+    let txt = get_text(
+        &client,
+        &format!("{STATIC_BASE}{year}/Index.json"),
+        cache_dir,
+    )
+    .await?;
+    let index: serde_json::Value = serde_json::from_str(strip_bom(&txt))?;
+    let mut events = Vec::new();
+    for m in index
+        .get("Meetings")
+        .and_then(|m| m.as_array())
+        .into_iter()
+        .flatten()
+    {
+        let name = m
+            .get("Name")
+            .and_then(|n| n.as_str())
+            .unwrap_or("")
+            .to_string();
+        if name.is_empty() {
+            continue;
+        }
+        let sessions = m
+            .get("Sessions")
+            .and_then(|s| s.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|s| {
+                Some(SessionEntry {
+                    name: s.get("Name").and_then(|n| n.as_str())?.to_string(),
+                    kind: s
+                        .get("Type")
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                })
+            })
+            .collect();
+        events.push(EventInfo { name, sessions });
+    }
+    Ok(events)
+}
+
 fn strip_bom(s: &str) -> &str {
     s.trim_start_matches('\u{feff}')
 }

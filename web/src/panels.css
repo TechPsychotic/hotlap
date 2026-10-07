@@ -96,6 +96,10 @@
 .brand-mark { color: var(--accent); font-size: 15px; }
 .session { font-size: 12px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .spacer { flex: 1; }
+.picker { display: flex; align-items: center; gap: 4px; }
+.picker select { font-size: 11px; padding: 3px 6px; max-width: 160px; }
+.picker button { font-size: 11px; padding: 3px 10px; }
+.picker-note { font-size: 10px; }
 .panel-menu { display: flex; gap: 4px; flex-wrap: wrap; }
 .panel-menu button { font-size: 11px; padding: 3px 8px; }
 .badge.conn { text-transform: capitalize; }

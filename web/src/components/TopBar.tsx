@@ -1,6 +1,7 @@
 import { useStore } from "../store";
 import { useWindows } from "../windows";
 import TransportBar from "./TransportBar";
+import SessionPicker from "./SessionPicker";
 
 function trackDot(status?: string | null): string {
   switch (status) {
@@ -46,6 +47,9 @@ export default function TopBar() {
       </div>
 
       <div className="session muted">{title || "No session"}</div>
+
+      <SessionPicker />
+
 
       <span className="badge">
         <span className={`dot ${trackDot(track?.status)}`} />

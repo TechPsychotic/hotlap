@@ -22,7 +22,7 @@ fn raw(topic: &str, payload: Value) -> RawMessage {
 async fn start(engine: std::sync::Arc<Engine>) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    let app = pitwall_server::router(engine, None);
+    let app = pitwall_server::router(pitwall_server::Hub::new(engine, None));
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
     });

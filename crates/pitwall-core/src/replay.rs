@@ -34,6 +34,11 @@ impl ReplayHandle {
     pub async fn join(self) {
         let _ = self.task.await;
     }
+
+    /// Stop the replay task immediately (used when switching sessions).
+    pub fn abort(&self) {
+        self.task.abort();
+    }
 }
 
 /// Spawn a replay of `recording` into `engine`.
