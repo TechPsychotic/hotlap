@@ -13,7 +13,45 @@ it, and serves it to two highly customizable front-ends:
 Live, recorded, and historical data all flow through **one pipeline**, so a session
 you record replays through the exact same code that rendered it live.
 
-> Status: early development. See [`docs`](docs/) / the plan for the roadmap.
+Live car positions are gated behind F1 TV (2025+), but **recorded and historical
+sessions are fully public** — so everything below works offline on any past race.
+
+> Deep dive: **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** · Report:
+> **[`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md)** · Roadmap:
+> **[`docs/TODO.md`](docs/TODO.md)**.
+
+## Features
+
+**Home / landing** — an F1-themed page with mouse **parallax**, the **next-race
+countdown** in your local time zone, and the full **season calendar** (live from
+Jolpica/Ergast).
+
+**One pipeline, three sources** — live SignalR feed, local recordings, and F1's
+public historical archive all flow through the same parser → state → broadcast
+path. Record a live session and it replays through the exact code that rendered it.
+
+**Replay transport** — play / pause / **near-instant seek** / variable speed, with
+**timeline markers** for session start, flags, SC/VSC, red, and finish. Seeking
+repopulates every panel to that moment.
+
+**Web dashboard** (window manager — move / resize / overlap / minimize; layout
+persists):
+
+- **Timing Tower** — order, gaps, sectors + mini-sector strips, tyres, live sector delta.
+- **Telemetry** — full-resolution speed/throttle/brake for a lap, with **lap
+  comparison** (a driver's best, the session fastest, a specific lap, or another
+  driver).
+- **Track Details** — the **real circuit map** in **2D** (geolocation outline) and
+  **interactive 3D** (three.js, built from circuit **topography/elevation**, with
+  orbit / zoom / pan), each showing the **start/finish line** and **yellow /
+  double-yellow zone highlights**; plus weather and the race-control log, inline.
+- **Strategy** (tyre stints), **Team Radio** (inline audio), **Weather**,
+  **Commentary** (F1's real live-blog, time-synced to the playhead), **Prediction**.
+
+**Liquid-glass UI** — translucent, blurred, iOS-style panels and chrome over a
+themed background.
+
+**Terminal UI** — the same engine in a keyboard-driven ratatui dashboard.
 
 ## Architecture
 
@@ -116,6 +154,41 @@ cargo run -p pitwall-cli -- tui --replay fixtures/monaco-2023-quali/
 
 Keys: `space` play/pause · `←/→` seek ±10s · `[`/`]` slower/faster · `↑/↓` focus
 driver · `q` quit.
+
+## Tech stack
+
+- **Core / server / TUI:** Rust — `tokio`, `axum` (+ WebSocket), `reqwest`,
+  `serde`/`schemars`, `tokio-tungstenite` (SignalR), `flate2` + `base64` (`.z`
+  decode), `clap`, `ratatui`, `chrono`.
+- **Web:** React 19 + TypeScript + Vite, `zustand` (state), `react-rnd` (windows),
+  `uPlot` (telemetry charts), `three.js` (3D track). Types are generated from the
+  Rust schema (`npm run gen:types`) so they can't drift.
+- **Data:** F1 Live Timing (live + static archive), Monterosa (commentary),
+  `bacinger/f1-circuits` GeoJSON + Open-Meteo/Open-Elevation (circuit elevation),
+  Jolpica/Ergast (calendar).
+
+## Project layout
+
+```
+pitwall/
+  crates/
+    pitwall-schema/   # shared types → JSON Schema → TS
+    pitwall-core/     # parser, engine, replay, recorder, historical, commentary, events, expand
+    pitwall-signalr/  # F1 Live Timing SignalR client
+    pitwall-server/   # axum WS + REST; serves web/dist; runtime session Hub
+    pitwall-tui/       # ratatui dashboard
+    pitwall-cli/       # the `pitwall` binary (serve/live/replay/historical/tui)
+  web/
+    src/
+      store.ts          # one WS → zustand store + derived state
+      components/        # TopBar, WindowManager, SessionPicker, TransportBar, Landing
+      panels/            # TimingTower, Telemetry, TrackDetails, Track3D, Strategy, Radio, Weather, Commentary, Prediction
+      circuits.ts        # circuit GeoJSON load/match/projection
+      types.gen.ts       # generated from the Rust schema
+    public/circuits.geojson   # 40 circuits, with baked elevation
+  fixtures/             # checked-in sample sessions for offline dev/tests
+  docs/                 # ARCHITECTURE.md, TODO.md
+```
 
 ## Data source & legal
 
