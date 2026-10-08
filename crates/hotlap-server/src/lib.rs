@@ -29,12 +29,16 @@ use hotlap_core::historical;
 use hotlap_schema::{ClientMessage, ReplayControl, ServerMessage};
 use serde::Deserialize;
 use tokio::sync::broadcast::error::RecvError;
+use axum::http::{header, HeaderValue};
+use tower::ServiceBuilder;
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::set_header::SetResponseHeaderLayer;
 
 pub use hub::Hub;
 
 /// Default address the local server binds to.
-pub const DEFAULT_ADDR: &str = "127.0.0.1:8080";
+/// Bind on all interfaces by default so other devices on the LAN can reach it.
+pub const DEFAULT_ADDR: &str = "0.0.0.0:8080";
 
 /// Shared handler state.
 #[derive(Clone)]
@@ -62,7 +66,15 @@ pub fn router(hub: Arc<Hub>) -> Router {
     match find_web_dir() {
         Some(dir) => {
             let index = dir.join("index.html");
-            let serve = ServeDir::new(&dir).not_found_service(ServeFile::new(index));
+            // `no-cache` makes the browser revalidate index.html every load (cheap
+            // 304s via ETag), so a rebuilt GUI shows up without a hard refresh —
+            // the hashed assets it points at are still cached.
+            let serve = ServiceBuilder::new()
+                .layer(SetResponseHeaderLayer::overriding(
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("no-cache"),
+                ))
+                .service(ServeDir::new(&dir).not_found_service(ServeFile::new(index)));
             tracing::info!(dir = %dir.display(), "serving web GUI from disk");
             api.fallback_service(serve)
         }
@@ -94,8 +106,25 @@ pub async fn serve(addr: SocketAddr, hub: Arc<Hub>) -> anyhow::Result<()> {
     let app = router(hub);
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!(%addr, "hotlap server listening (web GUI + API)");
+    // When bound on all interfaces, print the reachable URLs for the LAN.
+    if addr.ip().is_unspecified() {
+        println!("  Hotlap:  http://localhost:{}", addr.port());
+        if let Some(ip) = local_ip() {
+            println!("  LAN:     http://{ip}:{}  (open this on other devices)", addr.port());
+        }
+    } else {
+        println!("  Hotlap:  http://{addr}");
+    }
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+/// Best-effort primary LAN IP (no traffic is sent; the UDP connect just picks
+/// the default-route interface).
+fn local_ip() -> Option<std::net::IpAddr> {
+    let sock = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    sock.connect("8.8.8.8:80").ok()?;
+    sock.local_addr().ok().map(|a| a.ip())
 }
 
 async fn state_handler(State(state): State<AppState>) -> Json<hotlap_schema::SessionState> {

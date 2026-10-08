@@ -81,9 +81,11 @@ cd web && npm install && npm run build && cd ..
 cargo run -p hotlap-cli -- replay fixtures/monaco-2023-quali/
 ```
 
-Open <http://127.0.0.1:8080>. Windows **float, overlap, move, and resize** like a
-desktop; use the **taskbar** to open/minimize them, and the transport bar to
-play / pause / seek / change speed. The layout is remembered per browser.
+Open <http://localhost:8080>. The home page shows the season calendar — **click
+any past session to load and replay it** — plus the next-session countdown in
+your local time. Windows **float, overlap, move, and resize** like a desktop; use
+the **taskbar** to open/minimize them, and the transport bar to play / pause /
+seek / change speed. The layout is remembered per browser.
 
 Or start with an empty **session picker** and choose any season / event / session
 (practices included) from the dropdowns — it fetches and loads on the fly:
@@ -91,6 +93,25 @@ Or start with an empty **session picker** and choose any season / event / sessio
 ```sh
 cargo run -p hotlap-cli -- serve
 ```
+
+### LAN access
+
+The server **binds `0.0.0.0:8080` by default**, so other devices on your network
+can open it — on startup it prints the LAN URL (e.g. `http://192.168.1.20:8080`).
+Change the bind with `--addr` (e.g. `--addr 127.0.0.1:8080` to keep it local-only,
+or `--addr 0.0.0.0:9000` for a different port).
+
+### Docker
+
+```sh
+docker compose up --build        # → http://<this-host-ip>:8080 from any LAN device
+# or:
+docker build -t hotlap .
+docker run --rm -p 8080:8080 -v hotlap-cache:/root/.cache/hotlap hotlap
+```
+
+The image builds the web GUI and the Rust binary and serves both on
+`0.0.0.0:8080`; the named volume persists the historical download cache.
 
 `fixtures/monaco-2023-quali/` is a real slice of the 2023 Monaco GP qualifying
 (Q1 flying laps, incl. the yellow/red flags), exported with `tools/export_session.py`.

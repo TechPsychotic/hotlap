@@ -459,13 +459,36 @@ button, select, .cmp-chip, .cmp-add {
 
 /* Calendar session rows inside a race card */
 .lx-sessions { margin-top: 12px; display: flex; flex-direction: column; gap: 1px; border-top: 1px solid var(--line); padding-top: 8px; }
-.lx-sess { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 11.5px; padding: 2px 0; }
-.lx-sess-l { color: var(--fg-dim); }
-.lx-sess-d { color: var(--dim); font-size: 11px; }
-.lx-sess.past { opacity: 0.45; }
-.lx-sess.now { }
+.lx-sess {
+  display: flex; align-items: baseline; gap: 8px; font-size: 11.5px; width: 100%;
+  padding: 3px 6px; margin: 0; border-radius: 6px; text-align: left;
+  background: transparent; border: none; box-shadow: none; color: inherit;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.lx-sess-l { color: var(--fg-dim); flex: none; }
+.lx-sess-d { color: var(--dim); font-size: 11px; margin-left: auto; }
+.lx-sess-go { color: var(--accent-soft); font-size: 9px; width: 0; overflow: hidden; opacity: 0; transition: opacity 0.12s; }
+/* Past sessions are replayable: clickable, with a ▶ on hover. */
+.lx-sess.go { cursor: pointer; }
+.lx-sess.go:hover { background: rgba(255,255,255,0.06); }
+.lx-sess.go:hover .lx-sess-l { color: var(--fg); }
+.lx-sess.go:hover .lx-sess-go { width: auto; opacity: 1; margin-left: 6px; }
+.lx-sess.go:disabled { cursor: default; }
+.lx-sess.go:disabled:hover { background: transparent; }
+/* Future sessions aren't in the archive yet: muted, not clickable. */
+.lx-sess.future { opacity: 0.4; }
 .lx-sess.now .lx-sess-l { color: var(--accent-soft); font-weight: 700; }
 .lx-sess.now .lx-sess-d { color: var(--fg); }
+
+/* Session-load overlay + error toast */
+.lx-loading { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(5,7,10,0.55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.lx-loading-card { padding: 28px 40px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.lx-loading-t { font-family: var(--sans); font-weight: 700; font-size: 15px; }
+.lx-loading-s { font-size: 12px; }
+.lx-spin { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--line-2); border-top-color: var(--accent); animation: lx-spin 0.8s linear infinite; }
+@keyframes lx-spin { to { transform: rotate(360deg); } }
+.lx-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 50; padding: 11px 18px; border-radius: 12px; font-size: 13px; color: var(--fg); cursor: pointer; max-width: 90vw; }
+@media (prefers-reduced-motion: reduce) { .lx-spin { animation: none; } }
 
 /* Hero */
 .lx-hero { padding: clamp(28px, 7vh, 80px) 2px clamp(20px, 4vh, 40px); will-change: transform; transform: translate3d(calc(var(--px,0) * 9px), calc(var(--py,0) * 7px), 0); }

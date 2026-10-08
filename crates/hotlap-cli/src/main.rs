@@ -202,7 +202,7 @@ async fn run_replay(path: PathBuf, serve: ServeArgs, speed: f64, tui: bool) -> R
         hub.set_replay(handle, path.display().to_string()).await;
         hub.set_events(events).await;
         if !serve.no_open {
-            open_browser(&format!("http://{}", serve.addr));
+            open_browser(&browser_url(serve.addr));
         }
         hotlap_server::serve(serve.addr, hub).await?;
     } else {
@@ -217,7 +217,7 @@ async fn run_serve(serve: ServeArgs) -> Result<()> {
     let engine = Engine::new(4096);
     let hub = hotlap_server::Hub::new(engine, historical_cache_dir());
     if !serve.no_open {
-        open_browser(&format!("http://{}", serve.addr));
+        open_browser(&browser_url(serve.addr));
     }
     hotlap_server::serve(serve.addr, hub).await
 }
@@ -259,7 +259,7 @@ async fn run_historical(
         hub.set_replay(handle, fetched.name).await;
         hub.set_events(events).await;
         if !serve.no_open {
-            open_browser(&format!("http://{}", serve.addr));
+            open_browser(&browser_url(serve.addr));
         }
         hotlap_server::serve(serve.addr, hub).await?;
     } else {
@@ -307,7 +307,7 @@ async fn run_live(serve: ServeArgs, record: Option<PathBuf>, auth: Option<String
     if serve.serve {
         let hub = hotlap_server::Hub::new(engine, historical_cache_dir());
         if !serve.no_open {
-            open_browser(&format!("http://{}", serve.addr));
+            open_browser(&browser_url(serve.addr));
         }
         hotlap_server::serve(serve.addr, hub).await?;
     } else {
@@ -338,6 +338,16 @@ async fn run_tui(replay: Option<PathBuf>, live: bool, connect: Option<String>) -
 }
 
 /// Best-effort: open the given URL in the user's browser. Never fatal.
+/// Local URL for the given bind address — `0.0.0.0` isn't browsable, so point
+/// the local browser at `127.0.0.1` instead.
+fn browser_url(addr: SocketAddr) -> String {
+    if addr.ip().is_unspecified() {
+        format!("http://127.0.0.1:{}", addr.port())
+    } else {
+        format!("http://{addr}")
+    }
+}
+
 fn open_browser(url: &str) {
     let opener = if cfg!(target_os = "macos") {
         "open"

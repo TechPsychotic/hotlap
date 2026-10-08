@@ -64,12 +64,43 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const wkTime = (dt: Date) =>
   `${dt.toLocaleDateString(undefined, { weekday: "short" })} ${dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
 
+type IndexEvent = { name: string; sessions: { name: string; kind?: string }[] };
+
+// Session label → the archive session name it should match.
+const SESSION_MATCH: Record<string, RegExp> = {
+  FP1: /practice 1/i,
+  FP2: /practice 2/i,
+  FP3: /practice 3/i,
+  Quali: /^qualifying/i,
+  "Sprint Quali": /sprint\s*(qualifying|shootout)/i,
+  Sprint: /^sprint$/i,
+  Race: /^race/i,
+};
+
+/** Map a Jolpica race + session label to the archive's exact event/session names. */
+function archiveNames(
+  idx: IndexEvent[] | null,
+  raceName: string,
+  label: string,
+): { event: string; session: string } | null {
+  if (!idx) return null;
+  const lc = (s: string) => s.toLowerCase();
+  const short = lc(raceName.replace(/ Grand Prix$/, ""));
+  const ev = idx.find((e) => lc(e.name) === lc(raceName)) || idx.find((e) => lc(e.name).includes(short));
+  const re = SESSION_MATCH[label];
+  const sess = ev && re ? ev.sessions.find((s) => re.test(s.name)) : undefined;
+  return ev && sess ? { event: ev.name, session: sess.name } : null;
+}
+
 export default function Landing({ onEnter }: { onEnter: () => void }) {
   const year = new Date().getFullYear();
   const liveAvailable = useStore((s) => s.replay?.source === "live");
   const [races, setRaces] = useState<Race[] | null>(null);
   const [err, setErr] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [index, setIndex] = useState<IndexEvent[] | null>(null);
+  const [loading, setLoading] = useState<string | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const orbRef = useRef<HTMLDivElement | null>(null);
 
@@ -79,10 +110,52 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("fetch"))))
       .then((d) => ok && setRaces(parseRaces(d)))
       .catch(() => ok && setErr(true));
+    // The archive index maps a race's sessions to loadable event/session names.
+    fetch(`/api/index/${year}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => ok && setIndex(Array.isArray(d) ? d : []))
+      .catch(() => ok && setIndex([]));
     return () => {
       ok = false;
     };
   }, [year]);
+
+  // Click a past session → load it from the archive, then enter the workspace.
+  const loadSession = async (race: Race, sess: Sess) => {
+    const names = archiveNames(index, race.raceName, sess.label);
+    if (!names) {
+      setLoadErr(`${race.short} · ${sess.label} isn't in the archive yet.`);
+      return;
+    }
+    setLoadErr(null);
+    setLoading(`${race.short} · ${sess.label}`);
+    try {
+      const res = await fetch("/api/session/load", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ year, event: names.event, session: names.session }),
+      });
+      if (!res.ok) throw new Error("load");
+      for (let i = 0; i < 90; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const st = await fetch("/api/session/status").then((r) => r.json());
+        if (st.error) {
+          setLoadErr(String(st.error));
+          setLoading(null);
+          return;
+        }
+        if (!st.loading && st.name) {
+          onEnter();
+          return;
+        }
+      }
+      setLoadErr("Timed out loading that session.");
+      setLoading(null);
+    } catch {
+      setLoadErr("Could not load that session.");
+      setLoading(null);
+    }
+  };
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -235,7 +308,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
             const racePast = lastDt < now;
             const hasNext = next?.race.round === r.round;
             return (
-              <div className={`lx-card glass ${racePast ? "past" : ""} ${hasNext ? "next" : ""}`} key={r.round}>
+              <div className={`lx-card glass ${hasNext ? "next" : ""}`} key={r.round}>
                 <div className="lx-card-top">
                   <span className="lx-card-r">R{r.round}</span>
                   {hasNext && <span className="lx-card-badge">NEXT</span>}
@@ -249,8 +322,20 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
                   {r.sessions.map((s, i) => {
                     const isNext = hasNext && next?.sess.dt.getTime() === s.dt.getTime();
                     const past = s.dt.getTime() < now;
-                    return (
-                      <div className={`lx-sess ${past ? "past" : ""} ${isNext ? "now" : ""}`} key={i}>
+                    return past ? (
+                      <button
+                        className={`lx-sess go ${isNext ? "now" : ""}`}
+                        key={i}
+                        disabled={!!loading}
+                        onClick={() => loadSession(r, s)}
+                        title={`Replay ${r.short} · ${s.label}`}
+                      >
+                        <span className="lx-sess-l">{s.label}</span>
+                        <span className="lx-sess-d tnum">{wkTime(s.dt)}</span>
+                        <span className="lx-sess-go">▶</span>
+                      </button>
+                    ) : (
+                      <div className={`lx-sess future ${isNext ? "now" : ""}`} key={i}>
                         <span className="lx-sess-l">{s.label}</span>
                         <span className="lx-sess-d tnum">{wkTime(s.dt)}</span>
                       </div>
@@ -262,6 +347,21 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
           })}
         </div>
       </section>
+
+      {loadErr && !loading && (
+        <div className="lx-toast glass" role="status" onClick={() => setLoadErr(null)}>
+          {loadErr}
+        </div>
+      )}
+      {loading && (
+        <div className="lx-loading">
+          <div className="lx-loading-card glass">
+            <div className="lx-spin" />
+            <div className="lx-loading-t">Loading {loading}</div>
+            <div className="lx-loading-s dim">Fetching &amp; parsing the session…</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

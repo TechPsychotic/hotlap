@@ -1,0 +1,13 @@
+services:
+  hotlap:
+    build: .
+    image: hotlap:latest
+    container_name: hotlap
+    ports:
+      - "8080:8080"      # open http://<this-host-ip>:8080 from any LAN device
+    volumes:
+      - hotlap-cache:/root/.cache/hotlap   # persist historical downloads
+    restart: unless-stopped
+
+volumes:
+  hotlap-cache:
