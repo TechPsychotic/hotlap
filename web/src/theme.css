@@ -1,4 +1,4 @@
-/* Pitwall design tokens. Everything reads from these, so a theme is just a set
+/* Hotlap design tokens. Everything reads from these, so a theme is just a set
    of custom-property overrides. Dark is the default; [data-theme="light"] flips
    it. The dockview chrome is themed via its own JS theme object in app.tsx. */
 

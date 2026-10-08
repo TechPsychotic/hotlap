@@ -1,6 +1,6 @@
-# Pitwall — Architecture
+# Hotlap — Architecture
 
-This document describes how Pitwall is put together: the data pipeline, the
+This document describes how Hotlap is put together: the data pipeline, the
 crates, the wire protocol, the data sources, and the web/TUI front-ends. For a
 task-level roadmap see [`TODO.md`](TODO.md); for build/run instructions see the
 [README](../README.md).
@@ -9,7 +9,7 @@ task-level roadmap see [`TODO.md`](TODO.md); for build/run instructions see the
 
 ## 1. The idea
 
-Pitwall renders Formula 1 timing and telemetry from three kinds of source —
+Hotlap renders Formula 1 timing and telemetry from three kinds of source —
 **live**, **recorded**, and **historical** — through **one pipeline**. Live and
 replay share the same parser and state model, so a session you record replays
 through the exact code that rendered it live. Two front-ends (a browser window
@@ -43,12 +43,12 @@ manager and a terminal UI) are thin clients over one normalized state stream.
 
 | Crate | Responsibility |
 |-------|----------------|
-| `pitwall-schema` | Single source of truth for the data types (`SessionState`, `RawMessage`, `ReplayControl`, the wire `ServerMessage`/`ClientMessage`, …). Derives `schemars::JsonSchema`, exported to TypeScript so Rust and the web never drift. |
-| `pitwall-core` | The pipeline: ingest adapters, the per-topic **parser**, the **engine** (state store + merge-patch broadcaster), the **recorder**, the **replay clock**, historical fetch/index, event detection, commentary, telemetry densification. |
-| `pitwall-signalr` | F1 Live Timing SignalR client: negotiate → websocket connect → `Subscribe` → parse `R` (snapshot) / `M` (message) frames into `RawMessage`s. |
-| `pitwall-server` | axum HTTP server: the `/ws` snapshot+patch stream, the REST API, a runtime session **Hub**, and it serves the built web GUI from `web/dist`. |
-| `pitwall-tui` | A ratatui terminal dashboard that links `pitwall-core` in-process (no network needed). |
-| `pitwall-cli` | The `pitwall` binary wiring it together: `serve`, `live`, `replay`, `historical`, `tui`. |
+| `hotlap-schema` | Single source of truth for the data types (`SessionState`, `RawMessage`, `ReplayControl`, the wire `ServerMessage`/`ClientMessage`, …). Derives `schemars::JsonSchema`, exported to TypeScript so Rust and the web never drift. |
+| `hotlap-core` | The pipeline: ingest adapters, the per-topic **parser**, the **engine** (state store + merge-patch broadcaster), the **recorder**, the **replay clock**, historical fetch/index, event detection, commentary, telemetry densification. |
+| `hotlap-signalr` | F1 Live Timing SignalR client: negotiate → websocket connect → `Subscribe` → parse `R` (snapshot) / `M` (message) frames into `RawMessage`s. |
+| `hotlap-server` | axum HTTP server: the `/ws` snapshot+patch stream, the REST API, a runtime session **Hub**, and it serves the built web GUI from `web/dist`. |
+| `hotlap-tui` | A ratatui terminal dashboard that links `hotlap-core` in-process (no network needed). |
+| `hotlap-cli` | The `hotlap` binary wiring it together: `serve`, `live`, `replay`, `historical`, `tui`. |
 
 ~4,300 lines of Rust, ~3,300 lines of TypeScript/TSX.
 
@@ -136,7 +136,7 @@ existing recordings can be imported.
 (`play` / `pause` / `seek{offsetMs}` / `setSpeed{speed}`). The same commands are
 available over REST.
 
-### REST API (`pitwall-server`)
+### REST API (`hotlap-server`)
 
 | Route | Purpose |
 |-------|---------|
@@ -155,13 +155,13 @@ available over REST.
 
 The **Hub** owns the engine + the current replay handle; `session/load` swaps
 the replay at runtime (aborts the old one, resets the engine, spawns the new),
-so `pitwall serve` can start empty and switch sessions from the UI.
+so `hotlap serve` can start empty and switch sessions from the UI.
 
 ---
 
 ## 5. Schema → TypeScript (no drift)
 
-`pitwall-schema` derives `schemars::JsonSchema`; a tiny exporter emits JSON
+`hotlap-schema` derives `schemars::JsonSchema`; a tiny exporter emits JSON
 Schema, and `json-schema-to-typescript` generates `web/src/types.gen.ts`
 (`npm run gen:types`). The web store and panels consume these generated types, so
 a Rust field rename surfaces as a TypeScript error rather than a silent mismatch.
@@ -172,7 +172,7 @@ a Rust field rename surfaces as a TypeScript error rather than a silent mismatch
 
 | Data | Source | Notes |
 |------|--------|-------|
-| Live timing/telemetry | `livetiming.formula1.com` SignalR | 2025+ returns **401** without an authenticated F1 TV cookie; handled gracefully (`--auth` / `$PITWALL_F1_COOKIE`). |
+| Live timing/telemetry | `livetiming.formula1.com` SignalR | 2025+ returns **401** without an authenticated F1 TV cookie; handled gracefully (`--auth` / `$HOTLAP_F1_COOKIE`). |
 | Historical sessions | `livetiming.formula1.com/static/<year>/<path>/<Topic>.jsonStream` + season `Index.json` | Same format as live; **public, no login**. Cached under the OS cache dir. |
 | Live-blog commentary | Monterosa (F1's provider since 2024): `ContentStreams.json` → commentary URI → `/events/{id[:2]}/{id}/history.json` | Time-synced to the playhead by anchoring post epochs to a feed `Utc`+offset pair. Pre-2024 used the now-defunct ScribbleLive. |
 | Circuit outlines | `bacinger/f1-circuits` GeoJSON (40 circuits) | Bundled at `web/public/circuits.geojson`; matched to a session by circuit/country/meeting name (stopword-filtered). |
@@ -238,7 +238,7 @@ small set of `--glass-*` tokens in `theme.css`.
 
 ## 8. TUI
 
-`pitwall tui` links `pitwall-core` in-process and renders a ratatui dashboard:
+`hotlap tui` links `hotlap-core` in-process and renders a ratatui dashboard:
 timing tower (team/sector colours, tyres), a braille track map, telemetry gauges,
 conditions, race control, and keyboard transport (play/pause/seek/speed/focus).
 

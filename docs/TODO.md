@@ -1,4 +1,4 @@
-# Pitwall — TODO / next-session roadmap
+# Hotlap — TODO / next-session roadmap
 
 Feature requests captured 2026-10-07. Grouped by area, with data sources, likely
 code locations, approach, and open questions so it can be executed directly.
@@ -27,49 +27,27 @@ code locations, approach, and open questions so it can be executed directly.
   season calendar as cards. Calendar proxied by the core via new
   `GET /api/calendar/:year` (Jolpica/Ergast; it sends no CORS header).
 
-### To do (landing page)
+## Requested (2026-10-08, round 7) — done
 
-- [ ] **Replace the single "Enter Telemetry" button with two entry points:**
-  - **Live session** — enters the live telemetry feed; **greyed out / disabled
-    when no live session is active** (needs a liveness check — the live feed is
-    F1-TV-gated/401 since 2025, so this will usually be disabled; gate on whether
-    a live source is available/connected).
-  - **Historical telemetry** — enters the historical flow (season/event/session
-    picker → load → workspace), i.e. the existing replay path.
-  - *(Optional follow-on: make the calendar/next-race cards clickable to jump
-    straight into that race's historical session.)*
-- [ ] **Calendar: show every weekend session** (Practice 1/2/3, Sprint
-  Qualifying, Sprint, Qualifying, Race) — not just the race — each with its own
-  local-zone date/time. Jolpica already returns these per race
-  (`FirstPractice` / `SecondPractice` / `ThirdPractice` / `SprintQualifying` /
-  `Sprint` / `Qualifying` + the race date/time); sprint weekends omit FP2/FP3.
-  The next-race **countdown should target the next *session*** (not only the
-  race).
-
-### Workflow — landing-page round (plan only; do NOT implement yet)
-
-1. **Calendar session model** (`Landing.tsx`) — parse each Jolpica race into an
-   ordered `sessions: [{ kind, dt }]` from `FirstPractice`, `SecondPractice`,
-   `ThirdPractice`, `SprintQualifying`, `Sprint`, `Qualifying`, and the race
-   itself; drop absent ones (sprint weekends). Compute the next upcoming
-   *session* across all races (`earliest dt > now`) and drive the countdown off
-   it.
-2. **Calendar UI** — each race card lists its sessions (label + local
-   date/time); highlight the next session; keep past sessions/races dimmed.
-   Consider an expandable card to avoid clutter.
-3. **Two entry points** — replace the single "Enter Telemetry" with **Live
-   session** and **Historical telemetry** buttons. Historical → the existing
-   picker flow into the workspace.
-4. **Liveness gate** — add a cheap signal the landing can read (e.g.
-   `GET /api/live/status`, or reuse `/api/replay/status` + a live-source flag);
-   **disable the Live button when no live source is available**. In practice it
-   stays disabled (2025+ live feed is F1-TV-gated/401 without creds).
-5. **(Optional) Clickable cards** — a race/session card → `POST
-   /api/session/load` (map Jolpica `raceName` → the archive event name used by
-   `GET /api/index/:year`, and the chosen session kind) → enter the workspace.
-6. **Verify** — all sessions listed in local TZ; countdown targets the next
-   session; Live disabled with no live source; Historical opens the picker;
-   (cards load their session).
+- [x] **Two landing entry points** replacing "Enter Telemetry": **Live session**
+  (gated on `replay?.source === "live"` from the store — disabled/greyed with a
+  live dot when no live source; stays disabled in practice since the 2025+ live
+  feed is F1-TV-gated) and **Replay session** (enters the workspace / picker
+  flow).
+- [x] **Calendar shows every weekend session** — FP1/FP2/FP3, Sprint Quali,
+  Sprint, Quali, Race — each with its own local-zone date/time; sprint weekends
+  omit FP2/FP3. The **countdown targets the next *session*** across the whole
+  calendar, not just the next race.
+- [x] **Live, breathing red orb** that roams the screen — a blurred radial blob
+  with a CSS breathe animation, repositioned to a random spot every ~6.5 s (CSS
+  eases the glide); respects `prefers-reduced-motion`.
+- [x] User-facing framing simplified to **"live & historical"** (dropped
+  "recorded" from the tagline); entry points named **Live session** /
+  **Replay session**. *(The architecture docs keep "recorded" where it names the
+  real recording adapter.)*
+- [ ] *(Optional follow-on, not done)* make the calendar/next-session cards
+  clickable to jump straight into that race's historical session (map Jolpica
+  `raceName` → the archive event name used by `GET /api/index/:year`).
 
 ## Requested (2026-10-07, round 3) — done
 
@@ -88,7 +66,7 @@ code locations, approach, and open questions so it can be executed directly.
 - [x] **Cleaner traced line** — reference car is now the leader (clean racing
   laps). *Still partial until a full lap traces; a multi-car ordered outline, or
   always-use-static-outline-with-aligned-dots, would be the next step.*
-- [ ] Commentary for `pitwall live` (fetch ContentStreams on connect) — deferred:
+- [ ] Commentary for `hotlap live` (fetch ContentStreams on connect) — deferred:
   the live feed is fully F1-TV-gated (401), so it's untestable right now.
 
 ## Requested next (2026-10-07 — partly done)
@@ -97,7 +75,7 @@ code locations, approach, and open questions so it can be executed directly.
   seconds into each driver's own lap, reset on lap increment).
 - [x] **Default layout** — Team Radio in the old Weather slot; Weather closed by
   default (also inline in Track Details) + on the taskbar.
-- [x] **Session picker** (`pitwall serve` + top-bar dropdowns): a server **Hub**
+- [x] **Session picker** (`hotlap serve` + top-bar dropdowns): a server **Hub**
   swaps the current replay at runtime; REST `GET /api/years`,
   `GET /api/index/:year`, `POST /api/session/load`, `GET /api/session/status`;
   control routes to the current replay; WS resyncs on the new snapshot. Verified
@@ -109,29 +87,29 @@ code locations, approach, and open questions so it can be executed directly.
   (title + text); shown in the Commentary window. *Later: (1) time-sync posts to
   the replay playhead (currently all at offset 0) by anchoring post timestamps to
   a feed Utc+offset pair; (2) Monterosa WebSocket (`edgeservers-nlb-europe`,
-  subscribe `Live-{projectId}`) for live deltas; (3) commentary for `pitwall live`
+  subscribe `Live-{projectId}`) for live deltas; (3) commentary for `hotlap live`
   (fetch ContentStreams on connect).*
 
 ## Progress (2026-10-07, same day)
 
-- [x] **P5 — `historical` in core** (`pitwall historical <year> <gp> <session>`):
-  Rust port of the export tool in `pitwall-core::historical` — resolves the
+- [x] **P5 — `historical` in core** (`hotlap historical <year> <gp> <session>`):
+  Rust port of the export tool in `hotlap-core::historical` — resolves the
   session from the season Index, downloads the archived `.jsonStream` topics
   (percent-encoding + exact-name matching), parses + windows/downsamples into a
   Recording, caches raw downloads under the OS cache dir, and replays through
   both UIs. **Verified end-to-end** on 2023 Monaco Qualifying (public archive, no
   login). *Later: Jolpica/Ergast for nicer event lookup; a historical browser
   panel.*
-- [x] **P4 — Live ingest** (`pitwall live`): F1 Live Timing **SignalR client**
+- [x] **P4 — Live ingest** (`hotlap live`): F1 Live Timing **SignalR client**
   (negotiate → ws connect → Subscribe → parse `R`/`M` frames → RawMessage),
   wired to the engine + optional recorder, decoupled via an mpsc channel.
   Frame parsing unit-tested. **Caveat**: since 2025 the live feed returns **401**
   without an authenticated F1 TV session — handled gracefully with a clear
-  message; `--auth`/`$PITWALL_F1_COOKIE` forwards a session cookie. Could not be
+  message; `--auth`/`$HOTLAP_F1_COOKIE` forwards a session cookie. Could not be
   end-to-end verified here (no F1 TV creds / no guaranteed live session); the
   static archive path it shares *is* verified. *Later: real F1 TV OAuth login
-  flow (`pitwall login`), reconnect/backoff.*
-- [x] **P3 — TUI** (`pitwall tui --replay <dir>`): ratatui dashboard sharing the
+  flow (`hotlap login`), reconnect/backoff.*
+- [x] **P3 — TUI** (`hotlap tui --replay <dir>`): ratatui dashboard sharing the
   engine in-process — timing tower (team colours, lap/sector colours, tyres),
   track-map braille canvas, telemetry (gauges), conditions, race control, and
   keyboard transport (play/pause/seek/speed/driver-focus). *Later: resizable
@@ -166,7 +144,7 @@ code locations, approach, and open questions so it can be executed directly.
 
 - Branch `feat/core-pipeline` (not pushed). Commits: P0 scaffold → P1 core
   pipeline → P2 web GUI → polish → **window manager + real data** → quali polish.
-- **Core (Rust)**: `crates/pitwall-{schema,core,signalr,server,tui,cli}`. Pipeline =
+- **Core (Rust)**: `crates/hotlap-{schema,core,signalr,server,tui,cli}`. Pipeline =
   source → `parser` → `engine` (state + RFC7386 merge-patch broadcast) → axum WS/REST.
   Replay clock with play/pause/seek/speed. 22 tests green.
 - **Web (`web/`)**: React + TS, **free-floating window manager** (react-rnd,
@@ -178,10 +156,10 @@ code locations, approach, and open questions so it can be executed directly.
 - **Data**: real sessions via `tools/export_session.py` (pulls F1 archived
   `.jsonStream` from `livetiming.formula1.com/static/...`). Default fixture
   `fixtures/monaco-2023-quali/`. `fixtures/sample/` is the tiny test fixture.
-- Run: `cd web && npm run build`, then `cargo run -p pitwall-cli -- replay fixtures/monaco-2023-quali/`.
-  Stop a running core: `pkill -f 'pitwall replay'`.
+- Run: `cd web && npm run build`, then `cargo run -p hotlap-cli -- replay fixtures/monaco-2023-quali/`.
+  Stop a running core: `pkill -f 'hotlap replay'`.
 - Still unbuilt from the original plan: **P3 TUI**, **P4 live ingest**, **P5
-  `pitwall historical` as a first-class command** (fold `export_session.py` into Rust).
+  `hotlap historical` as a first-class command** (fold `export_session.py` into Rust).
 
 ---
 
@@ -236,7 +214,7 @@ math, exposed via REST/WS) + an SLM layer (natural language) + the web panel.
     Qwen/Llama/Gemma) for offline, or the Claude API. Decide hosting; keep the
     numeric predictions deterministic and use the LM only for phrasing/reasoning
     over the computed facts (avoid hallucinated numbers).
-  - Core: add `crates/pitwall-core/src/predict.rs` (deterministic) + an optional
+  - Core: add `crates/hotlap-core/src/predict.rs` (deterministic) + an optional
     predictions feed/endpoint; LM integration likely a separate service/crate.
 - Big feature — build in stages: (a) quali cut-off (simplest, deterministic),
   (b) race podium projection, (c) undercut/overcut, (d) SLM narrative.

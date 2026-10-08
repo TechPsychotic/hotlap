@@ -1,6 +1,6 @@
-# Pitwall — Project Report
+# Hotlap — Project Report
 
-> **The Pit Wall** · Formula 1 telemetry — live, recorded &amp; historical
+> Formula 1 telemetry — live &amp; historical
 > *Project report · v0.1*
 
 A local-first F1 telemetry application. One Rust core ingests Formula 1's Live
@@ -70,12 +70,12 @@ identical downstream.
 
 | Crate | Responsibility |
 |-------|----------------|
-| `pitwall-schema` | Shared types; derives JSON Schema, exported to TypeScript so Rust and the web can't drift. |
-| `pitwall-core` | Parser, engine (state + broadcaster), recorder, replay clock, historical fetch/index, commentary, event detection, telemetry densification. |
-| `pitwall-signalr` | F1 Live Timing SignalR client: negotiate → connect → Subscribe → parse frames. |
-| `pitwall-server` | axum WebSocket + REST; a runtime session Hub; serves the built web GUI. |
-| `pitwall-tui` | ratatui terminal dashboard, in-process over the same engine. |
-| `pitwall-cli` | The `pitwall` binary: serve · live · replay · historical · tui. |
+| `hotlap-schema` | Shared types; derives JSON Schema, exported to TypeScript so Rust and the web can't drift. |
+| `hotlap-core` | Parser, engine (state + broadcaster), recorder, replay clock, historical fetch/index, commentary, event detection, telemetry densification. |
+| `hotlap-signalr` | F1 Live Timing SignalR client: negotiate → connect → Subscribe → parse frames. |
+| `hotlap-server` | axum WebSocket + REST; a runtime session Hub; serves the built web GUI. |
+| `hotlap-tui` | ratatui terminal dashboard, in-process over the same engine. |
+| `hotlap-cli` | The `hotlap` binary: serve · live · replay · historical · tui. |
 
 ---
 
@@ -97,7 +97,7 @@ A few of the problems that needed real engineering rather than a library call.
 - **Delta protocol.** The engine diffs each state change as an RFC 7386
   merge-patch and broadcasts it. New clients get a snapshot, then patches —
   keeping the wire small under high-rate car data.
-- **No schema drift.** Types live once in `pitwall-schema`; `schemars` → JSON
+- **No schema drift.** Types live once in `hotlap-schema`; `schemars` → JSON
   Schema → generated `types.gen.ts`. A Rust field rename surfaces as a
   TypeScript error, not a silent mismatch.
 - **Circuit elevation.** Real topography for all 40 circuits is fetched once
@@ -169,7 +169,7 @@ against real sessions.
    SignalR live client; FastF1-style historical fetch — verified end-to-end on
    2023 Monaco qualifying.
 2. **Session picker &amp; Hub** — a server Hub swaps the loaded session at
-   runtime; `pitwall serve` starts empty and loads any year / event / session
+   runtime; `hotlap serve` starts empty and loads any year / event / session
    from the UI.
 3. **Real commentary &amp; replay polish** — F1's actual live-blog (Monterosa)
    time-synced to the playhead; timeline event markers; near-instant seek.
@@ -206,7 +206,7 @@ against real sessions.
 
 ---
 
-*Pitwall is an unofficial, fan-made tool. It is not associated with, authorized,
+*Hotlap is an unofficial, fan-made tool. It is not associated with, authorized,
 or endorsed by Formula 1 companies. "F1" and "Formula 1" are trademarks of
 Formula One Licensing B.V. It reads the same publicly reachable feed as FastF1,
 f1-dash and undercut-f1. Licensed MIT.*

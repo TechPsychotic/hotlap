@@ -1,5 +1,5 @@
 {
-  "name": "pitwall-web",
+  "name": "hotlap-web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "gen:types": "cargo run -q -p pitwall-schema --features schema-gen --bin export-schema > schema.json && json2ts -i schema.json -o src/types.gen.ts && rm schema.json"
+    "gen:types": "cargo run -q -p hotlap-schema --features schema-gen --bin export-schema > schema.json && json2ts -i schema.json -o src/types.gen.ts && rm schema.json"
   },
   "dependencies": {
     "@types/three": "^0.186.0",

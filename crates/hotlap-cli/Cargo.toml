@@ -1,0 +1,24 @@
+[package]
+name = "hotlap-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "The `hotlap` command-line entry point."
+
+[[bin]]
+name = "hotlap"
+path = "src/main.rs"
+
+[dependencies]
+hotlap-schema.workspace = true
+hotlap-core.workspace = true
+hotlap-signalr.workspace = true
+hotlap-server.workspace = true
+hotlap-tui.workspace = true
+clap.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+directories.workspace = true

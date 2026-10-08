@@ -6,16 +6,16 @@ members = ["crates/*"]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/pitwall/pitwall"
+repository = "https://github.com/hotlap/hotlap"
 rust-version = "1.80"
 
 [workspace.dependencies]
 # Internal crates
-pitwall-schema = { path = "crates/pitwall-schema" }
-pitwall-core = { path = "crates/pitwall-core" }
-pitwall-signalr = { path = "crates/pitwall-signalr" }
-pitwall-server = { path = "crates/pitwall-server" }
-pitwall-tui = { path = "crates/pitwall-tui" }
+hotlap-schema = { path = "crates/hotlap-schema" }
+hotlap-core = { path = "crates/hotlap-core" }
+hotlap-signalr = { path = "crates/hotlap-signalr" }
+hotlap-server = { path = "crates/hotlap-server" }
+hotlap-tui = { path = "crates/hotlap-tui" }
 
 # Serialization / schema
 serde = { version = "1", features = ["derive"] }

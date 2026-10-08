@@ -689,6 +689,98 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "hotlap-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "directories",
+ "hotlap-core",
+ "hotlap-schema",
+ "hotlap-server",
+ "hotlap-signalr",
+ "hotlap-tui",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "hotlap-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "chrono",
+ "flate2",
+ "futures",
+ "hotlap-schema",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "hotlap-schema"
+version = "0.1.0"
+dependencies = [
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "hotlap-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "futures",
+ "hotlap-core",
+ "hotlap-schema",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite",
+ "tower",
+ "tower-http",
+ "tracing",
+]
+
+[[package]]
+name = "hotlap-signalr"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "hotlap-schema",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+]
+
+[[package]]
+name = "hotlap-tui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "crossterm",
+ "hotlap-core",
+ "hotlap-schema",
+ "ratatui",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "http"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1191,98 +1283,6 @@ name = "pin-project-lite"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
-
-[[package]]
-name = "pitwall-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "directories",
- "pitwall-core",
- "pitwall-schema",
- "pitwall-server",
- "pitwall-signalr",
- "pitwall-tui",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "pitwall-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "chrono",
- "flate2",
- "futures",
- "pitwall-schema",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "pitwall-schema"
-version = "0.1.0"
-dependencies = [
- "schemars",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "pitwall-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "futures",
- "pitwall-core",
- "pitwall-schema",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tokio-tungstenite",
- "tower",
- "tower-http",
- "tracing",
-]
-
-[[package]]
-name = "pitwall-signalr"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "futures",
- "pitwall-schema",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "tokio-tungstenite",
- "tracing",
-]
-
-[[package]]
-name = "pitwall-tui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "crossterm",
- "pitwall-core",
- "pitwall-schema",
- "ratatui",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "potential_utf"

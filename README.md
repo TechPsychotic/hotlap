@@ -1,8 +1,8 @@
-# Pitwall
+# Hotlap
 
-> F1 live, recorded, and historical telemetry — in your browser **and** your terminal.
+> F1 live &amp; historical telemetry — in your browser **and** your terminal.
 
-Pitwall is a local-first Formula 1 telemetry app. A single Rust core ingests F1's
+Hotlap is a local-first Formula 1 telemetry app. A single Rust core ingests F1's
 Live Timing feed (live, from a local recording, or from a past session), normalizes
 it, and serves it to two highly customizable front-ends:
 
@@ -10,7 +10,7 @@ it, and serves it to two highly customizable front-ends:
   panels and saveable layouts.
 - **TUI** — a keyboard-driven terminal dashboard with resizable tiled panels.
 
-Live, recorded, and historical data all flow through **one pipeline**, so a session
+Live and historical data all flow through **one pipeline**, so a session
 you record replays through the exact same code that rendered it live.
 
 Live car positions are gated behind F1 TV (2025+), but **recorded and historical
@@ -64,12 +64,12 @@ themed background.
 
 | Crate | Responsibility |
 |-------|----------------|
-| `pitwall-schema` | Shared data types (Rust → JSON Schema → TS) |
-| `pitwall-core` | Ingest adapters, parser, state store, recorder, replay clock, broadcaster |
-| `pitwall-signalr` | F1 Live Timing SignalR client |
-| `pitwall-server` | axum WebSocket + REST API; serves the embedded web GUI |
-| `pitwall-tui` | ratatui terminal UI |
-| `pitwall-cli` | The `pitwall` binary |
+| `hotlap-schema` | Shared data types (Rust → JSON Schema → TS) |
+| `hotlap-core` | Ingest adapters, parser, state store, recorder, replay clock, broadcaster |
+| `hotlap-signalr` | F1 Live Timing SignalR client |
+| `hotlap-server` | axum WebSocket + REST API; serves the embedded web GUI |
+| `hotlap-tui` | ratatui terminal UI |
+| `hotlap-cli` | The `hotlap` binary |
 
 ## Quick start
 
@@ -78,7 +78,7 @@ themed background.
 cd web && npm install && npm run build && cd ..
 
 # 2. Replay the bundled real session; opens the dashboard in your browser
-cargo run -p pitwall-cli -- replay fixtures/monaco-2023-quali/
+cargo run -p hotlap-cli -- replay fixtures/monaco-2023-quali/
 ```
 
 Open <http://127.0.0.1:8080>. Windows **float, overlap, move, and resize** like a
@@ -89,7 +89,7 @@ Or start with an empty **session picker** and choose any season / event / sessio
 (practices included) from the dropdowns — it fetches and loads on the fly:
 
 ```sh
-cargo run -p pitwall-cli -- serve
+cargo run -p hotlap-cli -- serve
 ```
 
 `fixtures/monaco-2023-quali/` is a real slice of the 2023 Monaco GP qualifying
@@ -98,12 +98,12 @@ cargo run -p pitwall-cli -- serve
 
 ### Any past session, on demand
 
-Pitwall reads F1's archived Live Timing `.jsonStream` files directly (the same
+Hotlap reads F1's archived Live Timing `.jsonStream` files directly (the same
 source FastF1 uses) — no F1 TV login needed for past public sessions. Fetch,
 cache, and replay any past session in one command:
 
 ```sh
-cargo run -p pitwall-cli -- historical 2023 Silverstone Race
+cargo run -p hotlap-cli -- historical 2023 Silverstone Race
 # big race? downsample telemetry: --car-stride 3 --pos-stride 3
 # or window it:                   --start-minutes 20 --max-minutes 50
 ```
@@ -118,12 +118,12 @@ prefer a saved fixture.
 ### Live timing
 
 ```sh
-pitwall live                       # serves both UIs off the live feed
-pitwall live --record data/my-session   # also save it for replay later
+hotlap live                       # serves both UIs off the live feed
+hotlap live --record data/my-session   # also save it for replay later
 ```
 
 Since 2025 the live SignalR feed requires an **authenticated F1 TV session**, so
-pass your session cookie(s) with `--auth "<cookie>"` or `$PITWALL_F1_COOKIE`
+pass your session cookie(s) with `--auth "<cookie>"` or `$HOTLAP_F1_COOKIE`
 (and there must be a session live). The protocol client, recorder, and both UIs
 are implemented; only the feed itself is gated. The **static archive** used for
 `replay`/historical remains public and needs no login.
@@ -132,7 +132,7 @@ are implemented; only the feed itself is gated. The **static archive** used for
 
 ```sh
 # Terminal 1 — core serving the API + WebSocket
-cargo run -p pitwall-cli -- replay fixtures/monaco-2023-quali/ --no-open
+cargo run -p hotlap-cli -- replay fixtures/monaco-2023-quali/ --no-open
 
 # Terminal 2 — Vite dev server (HMR), proxies /api + /ws to the core
 cd web && npm run dev     # http://127.0.0.1:5173
@@ -149,7 +149,7 @@ cd web && npm run gen:types   # regenerates src/types.gen.ts
 A full ratatui dashboard against the same engine — no browser needed:
 
 ```sh
-cargo run -p pitwall-cli -- tui --replay fixtures/monaco-2023-quali/
+cargo run -p hotlap-cli -- tui --replay fixtures/monaco-2023-quali/
 ```
 
 Keys: `space` play/pause · `←/→` seek ±10s · `[`/`]` slower/faster · `↑/↓` focus
@@ -170,14 +170,14 @@ driver · `q` quit.
 ## Project layout
 
 ```
-pitwall/
+hotlap/
   crates/
-    pitwall-schema/   # shared types → JSON Schema → TS
-    pitwall-core/     # parser, engine, replay, recorder, historical, commentary, events, expand
-    pitwall-signalr/  # F1 Live Timing SignalR client
-    pitwall-server/   # axum WS + REST; serves web/dist; runtime session Hub
-    pitwall-tui/       # ratatui dashboard
-    pitwall-cli/       # the `pitwall` binary (serve/live/replay/historical/tui)
+    hotlap-schema/   # shared types → JSON Schema → TS
+    hotlap-core/     # parser, engine, replay, recorder, historical, commentary, events, expand
+    hotlap-signalr/  # F1 Live Timing SignalR client
+    hotlap-server/   # axum WS + REST; serves web/dist; runtime session Hub
+    hotlap-tui/       # ratatui dashboard
+    hotlap-cli/       # the `hotlap` binary (serve/live/replay/historical/tui)
   web/
     src/
       store.ts          # one WS → zustand store + derived state
@@ -192,7 +192,7 @@ pitwall/
 
 ## Data source & legal
 
-Pitwall reads the publicly reachable F1 Live Timing feed, as the FastF1, f1-dash, and
+Hotlap reads the publicly reachable F1 Live Timing feed, as the FastF1, f1-dash, and
 undercut-f1 projects do. It is an unofficial, fan-made tool and is not associated with,
 authorized, or endorsed by Formula 1 companies. "F1", "Formula 1" and related marks are
 trademarks of Formula One Licensing B.V.

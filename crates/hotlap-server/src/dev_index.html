@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hotlap — dev</title>
+<style>
+  :root {
+    --bg: #0b0e13; --panel: #141922; --line: #212838; --fg: #e6e9ef;
+    --dim: #8a93a6; --accent: #e10600; --green: #27d07f; --purple: #b26bff; --yellow: #ffd23f;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-size: 13px; }
+  header { display: flex; gap: 16px; align-items: center; padding: 10px 16px;
+           border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  .brand { font-weight: 700; letter-spacing: .5px; }
+  .brand b { color: var(--accent); }
+  .pill { color: var(--dim); }
+  .pill b { color: var(--fg); }
+  main { padding: 16px; display: grid; gap: 16px; grid-template-columns: 1fr; max-width: 980px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--dim); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: .4px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tla { font-weight: 700; }
+  .swatch { display: inline-block; width: 3px; height: 14px; border-radius: 2px; margin-right: 8px; vertical-align: middle; }
+  .pb { color: var(--green); } .ob { color: var(--purple); }
+  .pit { color: var(--yellow); }
+  .transport { display: flex; gap: 8px; align-items: center; }
+  button { background: var(--line); color: var(--fg); border: 1px solid #2c3446; border-radius: 6px;
+           padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  input[type=range] { width: 260px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--green); }
+</style>
+</head>
+<body>
+<header>
+  <span class="brand"><b>▟</b> HOTLAP <span style="color:var(--dim)">· dev</span></span>
+  <span class="pill" id="session">—</span>
+  <span class="pill">track <span class="status-dot" id="trackdot"></span> <b id="track">—</b></span>
+  <span class="pill">clock <b id="clock">—</b></span>
+  <span class="pill">lap <b id="lap">—</b></span>
+  <span class="pill" id="connpill">ws <b id="conn">connecting…</b></span>
+</header>
+<main>
+  <div class="transport" id="transport" style="display:none">
+    <button id="playpause">▶ play</button>
+    <input type="range" id="seek" min="0" max="1000" value="0" />
+    <span class="pill"><b id="pos">0:00</b> / <span id="dur">0:00</span></span>
+    <label class="pill">speed
+      <select id="speed">
+        <option>0.5</option><option selected>1</option><option>2</option><option>4</option><option>8</option>
+      </select>
+    </label>
+    <span class="pill" id="srckind"></span>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Pos</th><th>Drv</th><th>Gap</th><th>Int</th><th>Last</th>
+      <th class="num">Lap</th><th class="num">Spd</th><th class="num">Gear</th><th class="num">Thr</th><th>DRS</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+<script>
+// --- RFC 7386 merge patch (client side) ---
+function merge(target, patch) {
+  if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) return patch;
+  if (target === null || typeof target !== 'object' || Array.isArray(target)) target = {};
+  for (const k of Object.keys(patch)) {
+    if (patch[k] === null) delete target[k];
+    else target[k] = merge(target[k], patch[k]);
+  }
+  return target;
+}
+
+let state = {};
+let replay = null;
+
+function fmtClock(ms) {
+  if (ms == null) return '0:00';
+  const s = Math.floor(ms / 1000), m = Math.floor(s / 60);
+  return m + ':' + String(s % 60).padStart(2, '0');
+}
+
+function render() {
+  const s = state;
+  document.getElementById('session').textContent =
+    [s.session?.meetingName, s.session?.sessionName].filter(Boolean).join(' · ') || '—';
+  document.getElementById('track').textContent = s.trackStatus?.message || '—';
+  document.getElementById('clock').textContent = s.clock?.remaining || '—';
+  document.getElementById('lap').textContent =
+    s.lapCount ? `${s.lapCount.currentLap ?? '?'}/${s.lapCount.totalLaps ?? '?'}` : '—';
+
+  const drivers = s.drivers || {}, timing = s.timing || {}, car = s.car || {};
+  const order = Object.keys(timing).sort((a, b) =>
+    (timing[a].position ?? 99) - (timing[b].position ?? 99));
+  const rows = order.map(num => {
+    const d = drivers[num] || {}, t = timing[num] || {}, c = car[num] || {};
+    const colour = d.teamColour ? '#' + d.teamColour : 'var(--dim)';
+    const last = t.lastLapTime || {};
+    const lastCls = last.overallBest ? 'ob' : last.personalBest ? 'pb' : '';
+    const drs = (c.drs === 8 || c.drs === 10 || c.drs === 12 || c.drs === 14) ? 'ON' : '—';
+    return `<tr>
+      <td class="num">${t.position ?? ''}</td>
+      <td class="tla"><span class="swatch" style="background:${colour}"></span>${d.tla ?? num}</td>
+      <td class="${t.inPit ? 'pit' : ''}">${t.inPit ? 'PIT' : (t.gapToLeader ?? '')}</td>
+      <td>${t.intervalToAhead ?? ''}</td>
+      <td class="${lastCls}">${last.value ?? ''}</td>
+      <td class="num">${t.numberOfLaps ?? ''}</td>
+      <td class="num">${c.speed ?? ''}</td>
+      <td class="num">${c.gear ?? ''}</td>
+      <td class="num">${c.throttle ?? ''}</td>
+      <td>${drs === 'ON' ? '<span class="pb">ON</span>' : '—'}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('rows').innerHTML = rows;
+}
+
+function renderReplay() {
+  const t = document.getElementById('transport');
+  if (!replay) { t.style.display = 'none'; return; }
+  t.style.display = 'flex';
+  document.getElementById('srckind').textContent = replay.source;
+  document.getElementById('playpause').textContent = replay.playing ? '⏸ pause' : '▶ play';
+  document.getElementById('pos').textContent = fmtClock(replay.positionMs);
+  document.getElementById('dur').textContent = fmtClock(replay.durationMs);
+  const seek = document.getElementById('seek');
+  if (replay.durationMs && !seek.dragging) {
+    seek.value = Math.round(1000 * replay.positionMs / replay.durationMs);
+  }
+}
+
+// --- websocket ---
+let ws;
+function connect() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '/ws');
+  ws.onopen = () => { document.getElementById('conn').textContent = 'live'; };
+  ws.onclose = () => { document.getElementById('conn').textContent = 'closed — retrying'; setTimeout(connect, 1000); };
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'snapshot') { state = msg.state; render(); }
+    else if (msg.type === 'update') { state = merge(state, msg.patch); render(); }
+    else if (msg.type === 'replayStatus') { replay = msg.status; renderReplay(); }
+  };
+}
+function sendControl(control) { ws?.send(JSON.stringify({ type: 'replayControl', control })); }
+
+document.getElementById('playpause').onclick = () =>
+  sendControl({ action: replay?.playing ? 'pause' : 'play' });
+document.getElementById('speed').onchange = (e) =>
+  sendControl({ action: 'setSpeed', speed: parseFloat(e.target.value) });
+const seekEl = document.getElementById('seek');
+seekEl.addEventListener('mousedown', () => seekEl.dragging = true);
+seekEl.addEventListener('change', (e) => {
+  seekEl.dragging = false;
+  if (replay?.durationMs) sendControl({ action: 'seek', offsetMs: Math.round(replay.durationMs * e.target.value / 1000) });
+});
+connect();
+</script>
+</body>
+</html>

@@ -43,7 +43,7 @@ export default function TopBar({ onHome }: { onHome?: () => void }) {
   return (
     <header className="topbar">
       <button className="brand ghost" title="Home" onClick={onHome}>
-        <span className="brand-mark">▟</span> PITWALL
+        <span className="brand-mark">▟</span> HOTLAP
       </button>
 
       <div className="session muted">{title || "No session"}</div>
