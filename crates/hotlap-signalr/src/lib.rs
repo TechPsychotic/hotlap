@@ -162,7 +162,7 @@ pub async fn probe_live(auth: Option<String>) -> Result<Option<String>> {
         .send(Message::Text(format!("{{\"protocol\":\"json\",\"version\":1}}{RS}")))
         .await?;
     let sub = serde_json::json!({
-        "arguments": [["SessionInfo", "SessionStatus"]],
+        "arguments": [["Heartbeat", "SessionInfo", "SessionStatus"]],
         "invocationId": "0",
         "target": "Subscribe",
         "type": 1,
@@ -171,6 +171,7 @@ pub async fn probe_live(auth: Option<String>) -> Result<Option<String>> {
 
     let mut status: Option<String> = None;
     let mut name: Option<String> = None;
+    let mut heartbeat: Option<String> = None;
     loop {
         let frame = match tokio::time::timeout(Duration::from_secs(5), read.next()).await {
             Ok(Some(Ok(f))) => f,
@@ -214,14 +215,29 @@ pub async fn probe_live(auth: Option<String>) -> Result<Option<String>> {
                     _ => "Live session".to_string(),
                 });
             }
+            if let Some(hb) = pick("Heartbeat") {
+                if let Some(u) = hb.get("Utc").and_then(|u| u.as_str()) {
+                    heartbeat = Some(u.to_string());
+                }
+            }
         }
-        if status.is_some() && name.is_some() {
+        if status.is_some() && name.is_some() && heartbeat.is_some() {
             break;
         }
     }
-    let live = matches!(status.as_deref(), Some("Started") | Some("Aborted"));
     let _ = write.send(Message::Close(None)).await;
-    Ok(live.then(|| name.unwrap_or_else(|| "Live session".to_string())))
+
+    // A session is live when its status says so — or, during the gap while F1
+    // swaps sessions (status still shows the last one as Finished), when the
+    // feed's heartbeat is still fresh. That lets the user connect right as a
+    // session is coming up, rather than being locked out until status flips.
+    let status_live = matches!(status.as_deref(), Some("Started") | Some("Aborted"));
+    let heartbeat_fresh = heartbeat
+        .as_deref()
+        .and_then(|u| chrono::DateTime::parse_from_rfc3339(u).ok())
+        .map(|t| chrono::Utc::now().signed_duration_since(t.with_timezone(&chrono::Utc)).num_seconds().abs() < 90)
+        .unwrap_or(false);
+    Ok((status_live || heartbeat_fresh).then(|| name.unwrap_or_else(|| "Live session".to_string())))
 }
 
 /// Negotiate: returns the connection token and any load-balancer cookie.

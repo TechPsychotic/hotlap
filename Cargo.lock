@@ -757,6 +757,7 @@ name = "hotlap-signalr"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "futures",
  "hotlap-schema",
  "reqwest",
