@@ -5,7 +5,6 @@
 // the core from Jolpica (Ergast).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useStore } from "../store";
 
 interface Sess {
   label: string;
@@ -94,7 +93,7 @@ function archiveNames(
 
 export default function Landing({ onEnter }: { onEnter: () => void }) {
   const year = new Date().getFullYear();
-  const liveAvailable = useStore((s) => s.replay?.source === "live");
+  const [live, setLive] = useState<{ available: boolean; name?: string | null }>({ available: false });
   const [races, setRaces] = useState<Race[] | null>(null);
   const [err, setErr] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -119,6 +118,44 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
       ok = false;
     };
   }, [year]);
+
+  // Probe whether a session is live right now (lights up the Live button).
+  useEffect(() => {
+    let ok = true;
+    fetch("/api/live/available")
+      .then((r) => (r.ok ? r.json() : { available: false }))
+      .then((d) => ok && setLive(d))
+      .catch(() => {});
+    return () => {
+      ok = false;
+    };
+  }, []);
+
+  // Connect the live feed, then enter the workspace once data starts flowing.
+  const goLive = async () => {
+    setLoadErr(null);
+    setLoading(live.name ? `Live · ${live.name}` : "Live session");
+    try {
+      const res = await fetch("/api/session/live", { method: "POST" });
+      if (!res.ok) throw new Error("live");
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 700));
+        const st = await fetch("/api/state").then((r) => r.json()).catch(() => ({}));
+        const hasData =
+          st?.session?.meetingName ||
+          Object.keys(st?.drivers ?? {}).length > 0 ||
+          Object.keys(st?.timing ?? {}).length > 0;
+        if (hasData) {
+          onEnter();
+          return;
+        }
+      }
+      onEnter(); // enter anyway after the timeout
+    } catch {
+      setLoadErr("Could not connect to the live feed.");
+      setLoading(null);
+    }
+  };
 
   // Click a past session → load it from the archive, then enter the workspace.
   const loadSession = async (race: Race, sess: Sess) => {
@@ -233,11 +270,11 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
         <div className="lx-actions">
           <button
             className="lx-enter lx-live"
-            disabled={!liveAvailable}
-            title={liveAvailable ? "Enter the live session" : "No live session available"}
-            onClick={onEnter}
+            disabled={!live.available || !!loading}
+            title={live.available ? `Go live — ${live.name ?? "session on"}` : "No live session right now"}
+            onClick={goLive}
           >
-            <span className={`lx-live-dot ${liveAvailable ? "on" : ""}`} />
+            <span className={`lx-live-dot ${live.available ? "on" : ""}`} />
             Live session
           </button>
           <button className="lx-enter lx-replay" onClick={onEnter}>

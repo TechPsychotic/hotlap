@@ -9,6 +9,7 @@ description = "axum WebSocket + REST API for Hotlap; serves the web GUI."
 [dependencies]
 hotlap-schema.workspace = true
 hotlap-core.workspace = true
+hotlap-signalr.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

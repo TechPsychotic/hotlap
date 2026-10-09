@@ -136,6 +136,94 @@ pub async fn run(sink: mpsc::Sender<RawMessage>, auth: Option<String>) -> Result
     Ok(())
 }
 
+/// Quick liveness probe: connect, read the initial snapshot, and return the
+/// session's display name **iff a session is live right now** (SessionStatus is
+/// `Started`/`Aborted`), else `None`. Used to light up the web "Live" button.
+pub async fn probe_live(auth: Option<String>) -> Result<Option<String>> {
+    let http = reqwest::Client::builder().user_agent(UA).build()?;
+    let (token, cookie) = negotiate(&http, auth.as_deref()).await?;
+
+    let mut url = reqwest::Url::parse(&format!("{BASE_URL}/signalrcore"))?;
+    url.query_pairs_mut().append_pair("id", &token);
+    let ws_url = url.to_string().replacen("https://", "wss://", 1);
+    let connect_cookie = [auth, cookie].into_iter().flatten().collect::<Vec<_>>().join("; ");
+
+    let mut request = ws_url.into_client_request().context("building ws request")?;
+    request.headers_mut().insert(USER_AGENT, UA.parse()?);
+    if !connect_cookie.is_empty() {
+        request.headers_mut().insert(COOKIE, connect_cookie.parse()?);
+    }
+    let (ws, _) = tokio_tungstenite::connect_async(request)
+        .await
+        .context("connecting to signalr websocket")?;
+    let (mut write, mut read) = ws.split();
+
+    write
+        .send(Message::Text(format!("{{\"protocol\":\"json\",\"version\":1}}{RS}")))
+        .await?;
+    let sub = serde_json::json!({
+        "arguments": [["SessionInfo", "SessionStatus"]],
+        "invocationId": "0",
+        "target": "Subscribe",
+        "type": 1,
+    });
+    write.send(Message::Text(format!("{sub}{RS}"))).await?;
+
+    let mut status: Option<String> = None;
+    let mut name: Option<String> = None;
+    loop {
+        let frame = match tokio::time::timeout(Duration::from_secs(5), read.next()).await {
+            Ok(Some(Ok(f))) => f,
+            _ => break,
+        };
+        let text = match frame {
+            Message::Text(t) => t,
+            Message::Binary(b) => String::from_utf8_lossy(&b).into_owned(),
+            Message::Close(_) => break,
+            _ => continue,
+        };
+        for record in text.split(RS).filter(|r| !r.is_empty()) {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(record) else {
+                continue;
+            };
+            // Topic payloads come from the snapshot (type 3 result) or feed (type 1).
+            let pick = |topic: &str| -> Option<serde_json::Value> {
+                if v.get("type").and_then(|t| t.as_u64()) == Some(3) {
+                    v.get("result").and_then(|r| r.get(topic)).cloned()
+                } else if v.get("type").and_then(|t| t.as_u64()) == Some(1)
+                    && v.get("target").and_then(|t| t.as_str()) == Some("feed")
+                {
+                    let args = v.get("arguments").and_then(|a| a.as_array())?;
+                    (args.first().and_then(|t| t.as_str()) == Some(topic)).then(|| args[1].clone())
+                } else {
+                    None
+                }
+            };
+            if let Some(ss) = pick("SessionStatus") {
+                if let Some(s) = ss.get("Status").and_then(|s| s.as_str()) {
+                    status = Some(s.to_string());
+                }
+            }
+            if let Some(si) = pick("SessionInfo") {
+                let meeting = si.get("Meeting").and_then(|m| m.get("Name")).and_then(|n| n.as_str());
+                let session = si.get("Name").and_then(|n| n.as_str());
+                name = Some(match (meeting, session) {
+                    (Some(m), Some(s)) => format!("{m} — {s}"),
+                    (Some(m), None) => m.to_string(),
+                    (None, Some(s)) => s.to_string(),
+                    _ => "Live session".to_string(),
+                });
+            }
+        }
+        if status.is_some() && name.is_some() {
+            break;
+        }
+    }
+    let live = matches!(status.as_deref(), Some("Started") | Some("Aborted"));
+    let _ = write.send(Message::Close(None)).await;
+    Ok(live.then(|| name.unwrap_or_else(|| "Live session".to_string())))
+}
+
 /// Negotiate: returns the connection token and any load-balancer cookie.
 async fn negotiate(http: &reqwest::Client, auth: Option<&str>) -> Result<(String, Option<String>)> {
     let mut req = http

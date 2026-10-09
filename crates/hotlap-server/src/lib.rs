@@ -59,6 +59,8 @@ pub fn router(hub: Arc<Hub>) -> Router {
         .route("/api/index/:year", get(index_handler))
         .route("/api/calendar/:year", get(calendar_handler))
         .route("/api/session/load", post(load_handler))
+        .route("/api/session/live", post(live_handler))
+        .route("/api/live/available", get(live_available_handler))
         .route("/api/session/status", get(session_status_handler))
         .route("/api/events", get(events_handler))
         .with_state(state);
@@ -204,6 +206,31 @@ async fn load_handler(State(state): State<AppState>, Json(req): Json<LoadRequest
         req.pos_stride.unwrap_or(1),
     ));
     StatusCode::ACCEPTED
+}
+
+/// Attach the live feed as the current source. An F1 TV cookie set in the
+/// server's `$HOTLAP_F1_COOKIE` is used for the gated telemetry/position topics.
+async fn live_handler(State(state): State<AppState>) -> StatusCode {
+    let auth = std::env::var("HOTLAP_F1_COOKIE").ok();
+    tokio::spawn(state.hub.clone().go_live(auth));
+    StatusCode::ACCEPTED
+}
+
+#[derive(serde::Serialize)]
+struct LiveAvail {
+    available: bool,
+    name: Option<String>,
+}
+
+/// Quick check whether a session is live right now (so the web "Live" button can
+/// enable itself).
+async fn live_available_handler() -> Json<LiveAvail> {
+    let auth = std::env::var("HOTLAP_F1_COOKIE").ok();
+    let probe = hotlap_signalr::probe_live(auth);
+    match tokio::time::timeout(std::time::Duration::from_secs(8), probe).await {
+        Ok(Ok(Some(name))) => Json(LiveAvail { available: true, name: Some(name) }),
+        _ => Json(LiveAvail { available: false, name: None }),
+    }
 }
 
 async fn session_status_handler(State(state): State<AppState>) -> Json<hub::LoadStatus> {

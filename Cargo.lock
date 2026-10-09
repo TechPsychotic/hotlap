@@ -741,6 +741,7 @@ dependencies = [
  "futures",
  "hotlap-core",
  "hotlap-schema",
+ "hotlap-signalr",
  "reqwest",
  "serde",
  "serde_json",

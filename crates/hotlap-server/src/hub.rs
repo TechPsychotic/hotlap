@@ -5,9 +5,23 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use hotlap_core::{compute_events, historical, spawn_replay, Engine, ReplayHandle, SessionEvent};
-use hotlap_schema::{ReplayControl, SourceKind};
+use hotlap_schema::{RawMessage, ReplayControl, SourceKind};
 use serde::Serialize;
 use tokio::sync::{mpsc, Mutex};
+use tokio::task::AbortHandle;
+
+/// Handles for a running live-ingestion pair (feed producer + engine consumer).
+struct LiveTask {
+    producer: AbortHandle,
+    consumer: AbortHandle,
+}
+
+impl LiveTask {
+    fn abort(&self) {
+        self.producer.abort();
+        self.consumer.abort();
+    }
+}
 
 /// Shared session state for the server.
 pub struct Hub {
@@ -19,10 +33,24 @@ pub struct Hub {
 #[derive(Default)]
 struct Inner {
     replay: Option<ReplayHandle>,
+    live: Option<LiveTask>,
     name: Option<String>,
     loading: bool,
     error: Option<String>,
     events: Vec<SessionEvent>,
+}
+
+impl Inner {
+    /// Stop whatever source is currently running.
+    fn stop_sources(&mut self) {
+        if let Some(h) = &self.replay {
+            h.abort();
+        }
+        self.replay = None;
+        if let Some(l) = self.live.take() {
+            l.abort();
+        }
+    }
 }
 
 /// What the picker polls while a session loads.
@@ -89,10 +117,7 @@ impl Hub {
             let mut inner = self.inner.lock().await;
             inner.loading = true;
             inner.error = None;
-            if let Some(h) = &inner.replay {
-                h.abort();
-            }
-            inner.replay = None;
+            inner.stop_sources();
             inner.name = None;
             inner.events.clear();
         }
@@ -129,5 +154,44 @@ impl Hub {
                 inner.error = Some(e.to_string());
             }
         }
+    }
+
+    /// Attach the **live** feed as the current source: aborts any running source,
+    /// resets the engine, and spawns the SignalR client feeding it. `auth` is an
+    /// optional F1 TV cookie for the gated car-telemetry/position topics.
+    pub async fn go_live(self: Arc<Self>, auth: Option<String>) {
+        {
+            let mut inner = self.inner.lock().await;
+            inner.loading = true;
+            inner.error = None;
+            inner.stop_sources();
+            inner.name = None;
+            inner.events.clear();
+        }
+        self.engine.reset_state(Default::default());
+
+        let (tx, mut rx) = mpsc::channel::<RawMessage>(4096);
+        let engine = self.engine.clone();
+        let consumer = tokio::spawn(async move {
+            while let Some(msg) = rx.recv().await {
+                engine.apply(msg);
+            }
+        });
+        let hub = self.clone();
+        let producer = tokio::spawn(async move {
+            if let Err(e) = hotlap_signalr::run(tx, auth).await {
+                tracing::warn!(error = %e, "live feed ended");
+                let mut inner = hub.inner.lock().await;
+                inner.error = Some(e.to_string());
+            }
+        });
+
+        let mut inner = self.inner.lock().await;
+        inner.live = Some(LiveTask {
+            producer: producer.abort_handle(),
+            consumer: consumer.abort_handle(),
+        });
+        inner.name = Some("Live session".to_string());
+        inner.loading = false;
     }
 }
