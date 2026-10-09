@@ -135,15 +135,16 @@ Floating, resizable, overlapping windows with a taskbar and a persistent layout
 
 | Data | Source | Access |
 |------|--------|--------|
-| Live timing &amp; telemetry | livetiming.formula1.com — SignalR | F1 TV gated (2025+) |
+| Live timing | livetiming.formula1.com — SignalR Core (`/signalrcore`) | Public |
+| Live car telemetry + positions | same feed, `CarData.z` / `Position.z` | F1 TV token (2025+) |
 | Historical sessions | Static `.jsonStream` archive + season Index | Public, cached |
 | Live-blog commentary | Monterosa (F1's provider since 2024) | Public |
 | Circuit outlines | bacinger/f1-circuits GeoJSON (bundled) | Offline |
 | Circuit elevation | Open-Meteo / Open-Elevation (baked in) | Offline |
 | Race calendar | Jolpica / Ergast — via server proxy | Public |
 
-Live car positions are gated behind F1 TV, but recorded and historical positions
-are public — so the maps and telemetry work fully offline on any past race.
+Live timing is public via the `/signalrcore` endpoint; only live car telemetry +
+positions need an F1 TV token. Recorded and historical positions are public — so the maps and telemetry work fully offline on any past race.
 
 ---
 

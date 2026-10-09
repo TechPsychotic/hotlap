@@ -13,8 +13,9 @@ it, and serves it to two highly customizable front-ends:
 Live and historical data all flow through **one pipeline**, so a session
 you record replays through the exact same code that rendered it live.
 
-Live car positions are gated behind F1 TV (2025+), but **recorded and historical
-sessions are fully public** — so everything below works offline on any past race.
+Live timing is public; only live **car telemetry + positions** need an F1 TV login
+(2025+). **Recorded and historical sessions are fully public** — so everything
+below works offline on any past race.
 
 > Deep dive: **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** · Report:
 > **[`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md)** · Roadmap:
@@ -143,11 +144,13 @@ hotlap live                       # serves both UIs off the live feed
 hotlap live --record data/my-session   # also save it for replay later
 ```
 
-Since 2025 the live SignalR feed requires an **authenticated F1 TV session**, so
-pass your session cookie(s) with `--auth "<cookie>"` or `$HOTLAP_F1_COOKIE`
-(and there must be a session live). The protocol client, recorder, and both UIs
-are implemented; only the feed itself is gated. The **static archive** used for
-`replay`/historical remains public and needs no login.
+Connects to F1's ASP.NET **Core** SignalR endpoint (`/signalrcore`; F1 retired the
+old `/signalr` hub in 2025, which now 401s). **Core live timing — gaps, sectors,
+flags, weather, race control, driver list — is public and needs no login.** The
+premium topics **`CarData.z` and `Position.z`** (car telemetry + positions) still
+require a valid F1 TV session cookie since the 2025 Dutch GP — pass it with
+`--auth "<cookie>"` or `$HOTLAP_F1_COOKIE` to get those too. There must be a live
+session on. The **static archive** used for `replay`/historical is fully public.
 
 ### Web dev loop
 

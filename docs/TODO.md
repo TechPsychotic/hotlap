@@ -27,13 +27,29 @@ code locations, approach, and open questions so it can be executed directly.
   season calendar as cards. Calendar proxied by the core via new
   `GET /api/calendar/:year` (Jolpica/Ergast; it sends no CORS header).
 
+## Requested (2026-10-09, round 8) — done
+
+- [x] **Live ingestion fixed** — F1 retired the legacy ASP.NET SignalR hub
+  (`/signalr`, now 401) in 2025 and moved to ASP.NET **Core** SignalR
+  (`/signalrcore`). Rewrote `crates/hotlap-signalr` for the new protocol
+  (POST negotiate → `wss://…/signalrcore?id=<token>` with the affinity cookie →
+  `{"protocol":"json","version":1}` handshake → Subscribe invocation → `␞`-
+  delimited frames: type 3 snapshot, type 1 `feed`, type 6 ping). **Verified live**
+  against Singapore 2026 Sprint Qualifying: 22 drivers, live timing/weather/race
+  control, no auth. `CarData.z`/`Position.z` (car telemetry + positions) still
+  need an F1 TV cookie (`--auth` / `$HOTLAP_F1_COOKIE`).
+- [ ] *(Follow-on)* let `hotlap serve` attach a **live source at runtime** (a Hub
+  "go live" action + endpoint) so the landing **Live session** button lights up
+  and works, instead of needing the separate `hotlap live` command. (The button
+  currently gates on `replay.source === "live"`, which `serve` never sets.)
+
 ## Requested (2026-10-08, round 7) — done
 
 - [x] **Two landing entry points** replacing "Enter Telemetry": **Live session**
   (gated on `replay?.source === "live"` from the store — disabled/greyed with a
-  live dot when no live source; stays disabled in practice since the 2025+ live
-  feed is F1-TV-gated) and **Replay session** (enters the workspace / picker
-  flow).
+  live dot when no live source) and **Replay session** (enters the workspace /
+  picker flow). *(Round 8 fixed live ingestion, but `serve` doesn't attach a live
+  source yet — see the round-8 follow-on.)*
 - [x] **Calendar shows every weekend session** — FP1/FP2/FP3, Sprint Quali,
   Sprint, Quali, Race — each with its own local-zone date/time; sprint weekends
   omit FP2/FP3. The **countdown targets the next *session*** across the whole
@@ -66,8 +82,8 @@ code locations, approach, and open questions so it can be executed directly.
 - [x] **Cleaner traced line** — reference car is now the leader (clean racing
   laps). *Still partial until a full lap traces; a multi-car ordered outline, or
   always-use-static-outline-with-aligned-dots, would be the next step.*
-- [ ] Commentary for `hotlap live` (fetch ContentStreams on connect) — deferred:
-  the live feed is fully F1-TV-gated (401), so it's untestable right now.
+- [ ] Commentary for `hotlap live` (fetch ContentStreams on connect) — now
+  testable (live ingestion works via `/signalrcore`, round 8).
 
 ## Requested next (2026-10-07 — partly done)
 
