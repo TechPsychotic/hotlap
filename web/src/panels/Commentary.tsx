@@ -6,9 +6,18 @@ import { useStore } from "../store";
 
 export default function Commentary() {
   const msgs = useStore((s) => s.state.commentary) ?? [];
+  const streams = useStore((s) => s.state.audioStreams) ?? [];
   const items = [...msgs].reverse();
+  const audio = streams.find((s) => s.uri);
   return (
     <div className="panel comm">
+      {audio?.uri && (
+        <div className="comm-audio">
+          <span className="dim">Live audio · {audio.name ?? audio.language ?? "stream"}</span>
+          {/* Native HLS plays in Safari; other browsers may not support the m3u8. */}
+          <audio className="comm-audio-el" controls preload="none" src={audio.uri} />
+        </div>
+      )}
       <div className="panel-scroll">
         {items.length === 0 && (
           <div className="empty">No commentary for this session (available 2024+).</div>

@@ -77,6 +77,10 @@ export interface Protocol {
  */
 export interface SessionState {
   /**
+   * Live audio / commentary streams (from `AudioStreams`).
+   */
+  audioStreams: AudioStream[];
+  /**
    * Latest car telemetry per driver, keyed by racing number.
    */
   car: {
@@ -88,12 +92,30 @@ export interface SessionState {
    */
   commentary: CommentaryMsg[];
   /**
+   * Current tyre compound per driver (from `CurrentTyres`).
+   */
+  currentTyres: {
+    [k: string]: CurrentTyre;
+  };
+  /**
    * Static-ish per-driver info (name, team, colour), keyed by racing number.
    */
   drivers: {
     [k: string]: Driver;
   };
   lapCount?: LapCount | null;
+  /**
+   * Per-driver track position at each lap (from `LapSeries`) — for a position-change chart.
+   */
+  lapSeries: {
+    [k: string]: LapSeries;
+  };
+  /**
+   * Latest pit-lane time per driver (from `PitLaneTimeCollection`).
+   */
+  pitLaneTimes: {
+    [k: string]: PitLaneTime;
+  };
   /**
    * Latest track position per driver, keyed by racing number.
    */
@@ -121,8 +143,22 @@ export interface SessionState {
   timing: {
     [k: string]: TimingDatum;
   };
+  /**
+   * Broadcast top-three (from `TopThree`).
+   */
+  topThree: TopThreeLine[];
   trackStatus: TrackStatus;
   weather: WeatherData;
+  /**
+   * Weather samples over the session (from `WeatherDataSeries`).
+   */
+  weatherSeries: WeatherSample[];
+  [k: string]: unknown;
+}
+export interface AudioStream {
+  language?: string | null;
+  name?: string | null;
+  uri?: string | null;
   [k: string]: unknown;
 }
 export interface CarTelemetry {
@@ -165,6 +201,11 @@ export interface CommentaryMsg {
   utc?: string | null;
   [k: string]: unknown;
 }
+export interface CurrentTyre {
+  compound?: string | null;
+  new?: boolean | null;
+  [k: string]: unknown;
+}
 export interface Driver {
   broadcastName?: string | null;
   countryCode?: string | null;
@@ -191,6 +232,22 @@ export interface Driver {
 export interface LapCount {
   currentLap?: number | null;
   totalLaps?: number | null;
+  [k: string]: unknown;
+}
+export interface LapSeries {
+  /**
+   * Track position (as a string, e.g. `"3"`) at each lap index.
+   */
+  lapPosition: string[];
+  racingNumber?: string | null;
+  [k: string]: unknown;
+}
+export interface PitLaneTime {
+  /**
+   * Seconds spent in the pit lane, e.g. `"23.4"`.
+   */
+  duration?: string | null;
+  lap?: string | null;
   [k: string]: unknown;
 }
 export interface Position {
@@ -331,6 +388,17 @@ export interface SpeedTrap {
   value?: string | null;
   [k: string]: unknown;
 }
+export interface TopThreeLine {
+  diffToAhead?: string | null;
+  diffToLeader?: string | null;
+  lapTime?: string | null;
+  overallFastest: boolean;
+  position?: string | null;
+  racingNumber?: string | null;
+  teamColour?: string | null;
+  tla?: string | null;
+  [k: string]: unknown;
+}
 export interface TrackStatus {
   message?: string | null;
   /**
@@ -350,6 +418,11 @@ export interface WeatherData {
   trackTemp?: number | null;
   windDirection?: number | null;
   windSpeed?: number | null;
+  [k: string]: unknown;
+}
+export interface WeatherSample {
+  timestamp?: string | null;
+  weather: WeatherData;
   [k: string]: unknown;
 }
 /**

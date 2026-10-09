@@ -46,6 +46,12 @@ pub const TOPICS: &[&str] = &[
     "TimingData",
     "TimingAppData",
     "TimingStats",
+    "CurrentTyres",
+    "LapSeries",
+    "PitLaneTimeCollection",
+    "TopThree",
+    "WeatherDataSeries",
+    "AudioStreams",
     "CarData.z",
     "Position.z",
 ];

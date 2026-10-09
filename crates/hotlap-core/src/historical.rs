@@ -29,6 +29,12 @@ const STREAM_TOPICS: &[&str] = &[
     "TeamRadio",
     "TimingData",
     "TimingAppData",
+    "CurrentTyres",
+    "LapSeries",
+    "PitLaneTimeCollection",
+    "TopThree",
+    "WeatherDataSeries",
+    "AudioStreams",
     "CarData.z",
     "Position.z",
 ];

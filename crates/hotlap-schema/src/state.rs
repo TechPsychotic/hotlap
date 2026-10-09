@@ -35,6 +35,71 @@ pub struct SessionState {
     pub commentary: Vec<CommentaryMsg>,
     /// Captured team-radio clips.
     pub team_radio: Vec<TeamRadioClip>,
+
+    /// Current tyre compound per driver (from `CurrentTyres`).
+    pub current_tyres: BTreeMap<String, CurrentTyre>,
+    /// Per-driver track position at each lap (from `LapSeries`) — for a
+    /// position-change chart.
+    pub lap_series: BTreeMap<String, LapSeries>,
+    /// Latest pit-lane time per driver (from `PitLaneTimeCollection`).
+    pub pit_lane_times: BTreeMap<String, PitLaneTime>,
+    /// Broadcast top-three (from `TopThree`).
+    pub top_three: Vec<TopThreeLine>,
+    /// Weather samples over the session (from `WeatherDataSeries`).
+    pub weather_series: Vec<WeatherSample>,
+    /// Live audio / commentary streams (from `AudioStreams`).
+    pub audio_streams: Vec<AudioStream>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CurrentTyre {
+    pub compound: Option<String>,
+    pub new: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LapSeries {
+    pub racing_number: Option<String>,
+    /// Track position (as a string, e.g. `"3"`) at each lap index.
+    pub lap_position: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PitLaneTime {
+    /// Seconds spent in the pit lane, e.g. `"23.4"`.
+    pub duration: Option<String>,
+    pub lap: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TopThreeLine {
+    pub position: Option<String>,
+    pub racing_number: Option<String>,
+    pub tla: Option<String>,
+    pub team_colour: Option<String>,
+    pub lap_time: Option<String>,
+    pub diff_to_ahead: Option<String>,
+    pub diff_to_leader: Option<String>,
+    pub overall_fastest: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WeatherSample {
+    pub timestamp: Option<String>,
+    pub weather: WeatherData,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioStream {
+    pub name: Option<String>,
+    pub language: Option<String>,
+    pub uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]

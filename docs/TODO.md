@@ -27,6 +27,22 @@ code locations, approach, and open questions so it can be executed directly.
   season calendar as cards. Calendar proxied by the core via new
   `GET /api/calendar/:year` (Jolpica/Ergast; it sends no CORS header).
 
+## Requested (2026-10-09, round 9) — done
+
+- [x] **Use the ungated live topics** found on `/signalrcore`. Plumbed through
+  schema → parser (robust to array/index-keyed deltas) → live subscribe →
+  historical `STREAM_TOPICS` → generated TS types, and surfaced in the UI:
+  - **`LapSeries`** → new **Race Chart** panel (position-by-lap graph).
+  - **`TopThree`** → podium strip atop the Race Chart.
+  - **`CurrentTyres`** → current-compound chip in the Strategy panel.
+  - **`PitLaneTimeCollection`** → pit-lane time badge in Strategy (fills in
+    during races).
+  - **`WeatherDataSeries`** → track/air-temp sparklines in the Weather panel.
+  - **`AudioStreams`** → live-audio player in the Commentary panel (native HLS;
+    plays in Safari, may not in Chrome without hls.js).
+  - Verified live against Singapore Sprint Qualifying. Only `CarData.z` /
+    `Position.z` remain F1-TV-gated.
+
 ## Requested (2026-10-09, round 8) — done
 
 - [x] **Live ingestion fixed** — F1 retired the legacy ASP.NET SignalR hub

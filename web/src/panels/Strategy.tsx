@@ -23,6 +23,9 @@ export default function Strategy() {
           const d = state.drivers?.[num] ?? {};
           const stints = state.stints?.[num] ?? [];
           const done = state.timing?.[num]?.numberOfLaps ?? 0;
+          const cur = state.currentTyres?.[num];
+          const pit = state.pitLaneTimes?.[num];
+          const curColor = cur?.compound ? TYRE[cur.compound] ?? "var(--dim)" : "var(--dim)";
           return (
             <div
               key={num}
@@ -52,6 +55,19 @@ export default function Strategy() {
                     </span>
                   );
                 })}
+              </div>
+              <div className="strat-meta">
+                {cur?.compound && (
+                  <span className="strat-cur" style={{ borderColor: curColor, color: curColor }} title={`Current: ${cur.compound}${cur.new ? " (new)" : " (used)"}`}>
+                    {cur.compound[0]}
+                    {cur.new ? "" : "·"}
+                  </span>
+                )}
+                {pit?.duration && (
+                  <span className="strat-pit tnum" title={`Pit lane time${pit.lap ? ` · lap ${pit.lap}` : ""}`}>
+                    {Number(pit.duration).toFixed(1)}s
+                  </span>
+                )}
               </div>
             </div>
           );

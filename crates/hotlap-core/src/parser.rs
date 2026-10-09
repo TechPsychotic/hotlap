@@ -39,6 +39,12 @@ pub fn apply(state: &mut SessionState, msg: &RawMessage) -> Result<()> {
         "RaceControlMessages" => apply_race_control(state, &payload),
         "Commentary" => apply_commentary(state, &payload),
         "TeamRadio" => apply_team_radio(state, &payload),
+        "CurrentTyres" => apply_current_tyres(state, &payload),
+        "LapSeries" => apply_lap_series(state, &payload),
+        "PitLaneTimeCollection" => apply_pit_lane(state, &payload),
+        "TopThree" => apply_top_three(state, &payload),
+        "WeatherDataSeries" => apply_weather_series(state, &payload),
+        "AudioStreams" => apply_audio_streams(state, &payload),
         "Heartbeat" => {}
         _ => {} // Unknown/unhandled topic: ignored, not an error.
     }
@@ -341,6 +347,103 @@ fn apply_team_radio(state: &mut SessionState, p: &Value) {
             racing_number: coerce::str(&c["RacingNumber"]),
             path: coerce::str(&c["Path"]),
         });
+    }
+}
+
+fn apply_current_tyres(state: &mut SessionState, p: &Value) {
+    let Some(tyres) = p["Tyres"].as_object() else {
+        return;
+    };
+    for (num, t) in tyres {
+        if num.starts_with('_') {
+            continue;
+        }
+        let ct = state.current_tyres.entry(num.clone()).or_default();
+        merge_str(&mut ct.compound, &t["Compound"]);
+        if let Some(b) = coerce::bool(&t["New"]) {
+            ct.new = Some(b);
+        }
+    }
+}
+
+/// `LapSeries` is keyed directly by racing number; each carries a `LapPosition`
+/// array (position at each lap), updated either in full or by index in deltas.
+fn apply_lap_series(state: &mut SessionState, p: &Value) {
+    let Some(lines) = p.as_object() else {
+        return;
+    };
+    for (num, line) in lines {
+        if num.starts_with('_') {
+            continue;
+        }
+        let ls = state.lap_series.entry(num.clone()).or_default();
+        merge_str(&mut ls.racing_number, &line["RacingNumber"]);
+        if ls.racing_number.is_none() {
+            ls.racing_number = Some(num.clone());
+        }
+        for (idx, v) in indexed(&line["LapPosition"]) {
+            ensure_len(&mut ls.lap_position, idx + 1);
+            if let Some(s) = coerce::str(v) {
+                ls.lap_position[idx] = s;
+            }
+        }
+    }
+}
+
+fn apply_pit_lane(state: &mut SessionState, p: &Value) {
+    let Some(times) = p["PitTimes"].as_object() else {
+        return;
+    };
+    for (num, t) in times {
+        if num.starts_with('_') {
+            continue;
+        }
+        let pt = state.pit_lane_times.entry(num.clone()).or_default();
+        merge_str(&mut pt.duration, &t["Duration"]);
+        merge_str(&mut pt.lap, &t["Lap"]);
+    }
+}
+
+fn apply_top_three(state: &mut SessionState, p: &Value) {
+    for (idx, l) in indexed(&p["Lines"]) {
+        ensure_len(&mut state.top_three, idx + 1);
+        let line = &mut state.top_three[idx];
+        merge_str(&mut line.position, &l["Position"]);
+        merge_str(&mut line.racing_number, &l["RacingNumber"]);
+        merge_str(&mut line.tla, &l["Tla"]);
+        merge_str(&mut line.team_colour, &l["TeamColour"]);
+        merge_str(&mut line.lap_time, &l["LapTime"]);
+        merge_str(&mut line.diff_to_ahead, &l["DiffToAhead"]);
+        merge_str(&mut line.diff_to_leader, &l["DiffToLeader"]);
+        set_bool(&mut line.overall_fastest, &l["OverallFastest"]);
+    }
+}
+
+fn apply_weather_series(state: &mut SessionState, p: &Value) {
+    for (idx, s) in indexed(&p["Series"]) {
+        ensure_len(&mut state.weather_series, idx + 1);
+        let sample = &mut state.weather_series[idx];
+        merge_str(&mut sample.timestamp, &s["Timestamp"]);
+        let w = &s["Weather"];
+        merge_f64(&mut sample.weather.air_temp, &w["AirTemp"]);
+        merge_f64(&mut sample.weather.track_temp, &w["TrackTemp"]);
+        merge_f64(&mut sample.weather.humidity, &w["Humidity"]);
+        merge_f64(&mut sample.weather.pressure, &w["Pressure"]);
+        merge_f64(&mut sample.weather.wind_speed, &w["WindSpeed"]);
+        merge_f64(&mut sample.weather.wind_direction, &w["WindDirection"]);
+        if let Some(b) = coerce::bool(&w["Rainfall"]) {
+            sample.weather.rainfall = Some(b);
+        }
+    }
+}
+
+fn apply_audio_streams(state: &mut SessionState, p: &Value) {
+    for (idx, s) in indexed(&p["Streams"]) {
+        ensure_len(&mut state.audio_streams, idx + 1);
+        let st = &mut state.audio_streams[idx];
+        merge_str(&mut st.name, &s["Name"]);
+        merge_str(&mut st.language, &s["Language"]);
+        merge_str(&mut st.uri, &s["Uri"]);
     }
 }
 
