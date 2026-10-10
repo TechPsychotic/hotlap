@@ -45,6 +45,7 @@ pub fn apply(state: &mut SessionState, msg: &RawMessage) -> Result<()> {
         "TopThree" => apply_top_three(state, &payload),
         "WeatherDataSeries" => apply_weather_series(state, &payload),
         "AudioStreams" => apply_audio_streams(state, &payload),
+        "ContentStreams" => apply_content_streams(state, &payload),
         "Heartbeat" => {}
         _ => {} // Unknown/unhandled topic: ignored, not an error.
     }
@@ -444,6 +445,18 @@ fn apply_audio_streams(state: &mut SessionState, p: &Value) {
         merge_str(&mut st.name, &s["Name"]);
         merge_str(&mut st.language, &s["Language"]);
         merge_str(&mut st.uri, &s["Uri"]);
+    }
+}
+
+/// `ContentStreams` lists the session's content feeds; pull out the Monterosa
+/// commentary URI so the live path can poll its live-blog.
+fn apply_content_streams(state: &mut SessionState, p: &Value) {
+    for (_, s) in indexed(&p["Streams"]) {
+        if s["Type"].as_str() == Some("Commentary") {
+            if let Some(uri) = coerce::str(&s["Uri"]) {
+                state.commentary_uri = Some(uri);
+            }
+        }
     }
 }
 

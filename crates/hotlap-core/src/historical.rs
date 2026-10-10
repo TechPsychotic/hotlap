@@ -241,6 +241,42 @@ fn strip_bom(s: &str) -> &str {
 /// commentary URI → that event's `history.json` (a static timeline of posts).
 /// Emits synthetic `Commentary` messages at offset 0 (shown as the session's
 /// commentary log). Returns an empty vec when no Monterosa stream is present.
+/// Fetch live-blog commentary posts straight from a Monterosa embed URI (the
+/// `Uri` of the `Commentary` content stream the live feed advertises). Returns
+/// `Commentary` RawMessages with `offset_ms = 0` (applied immediately for live).
+pub async fn fetch_monterosa_posts(client: &reqwest::Client, uri: &str) -> Result<Vec<RawMessage>> {
+    let Some((host, event)) = parse_monterosa_uri(uri) else {
+        return Ok(Vec::new());
+    };
+    if event.len() < 2 {
+        return Ok(Vec::new());
+    }
+    let hist_url = format!("https://{host}/events/{}/{}/history.json", &event[..2], event);
+    let hist_txt = client.get(&hist_url).send().await?.text().await?;
+    let hist: serde_json::Value = serde_json::from_str(strip_bom(&hist_txt))?;
+
+    let mut out = Vec::new();
+    for post in hist["timeline"].as_array().into_iter().flatten() {
+        let all = &post["custom_fields"]["all"];
+        let title = all["title"].as_str().unwrap_or("").trim().to_string();
+        let text = strip_html(all["text"].as_str().unwrap_or(""));
+        if title.is_empty() && text.is_empty() {
+            continue;
+        }
+        out.push(RawMessage {
+            topic: "Commentary".into(),
+            payload: serde_json::json!({
+                "Title": title,
+                "Text": text,
+                "Utc": post["published_at_iso"].as_str().unwrap_or_default(),
+            }),
+            utc: None,
+            offset_ms: 0,
+        });
+    }
+    Ok(out)
+}
+
 async fn fetch_commentary(
     client: &reqwest::Client,
     base: &str,

@@ -52,6 +52,7 @@ pub const TOPICS: &[&str] = &[
     "TopThree",
     "WeatherDataSeries",
     "AudioStreams",
+    "ContentStreams",
     "CarData.z",
     "Position.z",
 ];

@@ -33,6 +33,9 @@ pub struct SessionState {
     pub race_control: Vec<RaceControlMessage>,
     /// Broadcast-ticker commentary messages (the `TlaRcm` feed), newest last.
     pub commentary: Vec<CommentaryMsg>,
+    /// Monterosa live-blog commentary URI (from `ContentStreams`), which the live
+    /// path polls for posts. Not rendered directly.
+    pub commentary_uri: Option<String>,
     /// Captured team-radio clips.
     pub team_radio: Vec<TeamRadioClip>,
 

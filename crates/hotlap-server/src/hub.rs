@@ -10,16 +10,19 @@ use serde::Serialize;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::AbortHandle;
 
-/// Handles for a running live-ingestion pair (feed producer + engine consumer).
+/// Handles for a running live ingestion (feed producer, engine consumer, and the
+/// live-blog commentary poller).
 struct LiveTask {
     producer: AbortHandle,
     consumer: AbortHandle,
+    commentary: AbortHandle,
 }
 
 impl LiveTask {
     fn abort(&self) {
         self.producer.abort();
         self.consumer.abort();
+        self.commentary.abort();
     }
 }
 
@@ -185,11 +188,14 @@ impl Hub {
                 inner.error = Some(e.to_string());
             }
         });
+        // Poll the live-blog (URI arrives via the ContentStreams topic).
+        let commentary = hotlap_core::spawn_commentary_poller(self.engine.clone());
 
         let mut inner = self.inner.lock().await;
         inner.live = Some(LiveTask {
             producer: producer.abort_handle(),
             consumer: consumer.abort_handle(),
+            commentary: commentary.abort_handle(),
         });
         inner.name = Some("Live session".to_string());
         inner.loading = false;

@@ -92,6 +92,10 @@ export interface SessionState {
    */
   commentary: CommentaryMsg[];
   /**
+   * Monterosa live-blog commentary URI (from `ContentStreams`), which the live path polls for posts. Not rendered directly.
+   */
+  commentaryUri?: string | null;
+  /**
    * Current tyre compound per driver (from `CurrentTyres`).
    */
   currentTyres: {

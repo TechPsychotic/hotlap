@@ -20,6 +20,38 @@ pub use events::{compute_events, SessionEvent};
 pub use recording::{Recorder, Recording};
 pub use replay::{spawn as spawn_replay, ReplayHandle};
 
+use std::collections::HashSet;
+use std::sync::Arc;
+use std::time::Duration;
+
+/// Poll the Monterosa live-blog for the live session and apply new commentary
+/// posts to the engine. The blog URI is discovered from the `ContentStreams`
+/// topic (so this does nothing until that arrives). Used by the live path.
+pub fn spawn_commentary_poller(engine: Arc<Engine>) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let client = reqwest::Client::builder()
+            .user_agent("hotlap")
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+        let mut seen: HashSet<String> = HashSet::new();
+        loop {
+            if let Some(uri) = engine.snapshot().commentary_uri.clone() {
+                if let Ok(posts) = historical::fetch_monterosa_posts(&client, &uri).await {
+                    for p in posts {
+                        // De-dupe by content so re-polling the full history only
+                        // adds genuinely new posts.
+                        let key = p.payload.to_string();
+                        if seen.insert(key) {
+                            engine.apply(p);
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_secs(12)).await;
+        }
+    })
+}
+
 /// Crate-wide error type.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

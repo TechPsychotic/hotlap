@@ -304,6 +304,9 @@ async fn run_live(serve: ServeArgs, record: Option<PathBuf>, auth: Option<String
         }
     });
 
+    // Poll the live-blog for commentary (URI arrives via ContentStreams).
+    let _commentary = hotlap_core::spawn_commentary_poller(engine.clone());
+
     if serve.serve {
         let hub = hotlap_server::Hub::new(engine, historical_cache_dir());
         if !serve.no_open {
