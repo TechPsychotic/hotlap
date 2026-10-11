@@ -1,7 +1,11 @@
-// Track Clock: every driver placed around a ring by their position on the lap
-// (derived from the on-track time gaps), "like a clock". Inspired by the
-// F1-MultiViewer track-position view. Center shows lap, status, reference lap and
-// the reference driver; the reference is the leader, or any driver you click.
+// Track Clock — a "Circle of Doom" (MultiViewer-style) view: the ring is one
+// lap of the circuit with the start/finish at the top. The leader sweeps around
+// the ring at its own track position (from the mini-sectors it has cleared), and
+// every other car is placed *behind* the leader by its real time gap converted
+// to a fraction of a lap — so clusters and big gaps on track read at a glance,
+// and the whole field rotates like clock hands as the race runs. Lapped cars
+// fall back to their own mini-sector position. Center shows lap, track status,
+// reference lap and the reference driver (the leader, or any car you click).
 
 import { useMemo } from "react";
 import { useStore, orderByPosition, teamColour, lapMs } from "../store";
@@ -11,17 +15,6 @@ const CY = 200;
 const R = 132;
 const R_DOT = 132;
 const R_LABEL = 158;
-
-/** Total time (ms) a car is behind the leader, from its gap-to-leader string. */
-function gapMs(s: string | null | undefined, refLap: number): number {
-  if (!s) return 0;
-  const str = String(s).trim();
-  const lap = str.match(/(\d+)\s*L(?:AP)?/i);
-  const laps = lap ? parseInt(lap[1], 10) : 0;
-  const sec = str.match(/\+?\s*(\d+(?:\.\d+)?)\s*$/);
-  const seconds = sec && !/L/i.test(str.slice(sec.index ?? 0)) ? parseFloat(sec[1]) : 0;
-  return laps * refLap + seconds * 1000;
-}
 
 // clockwise angle (deg, 0 = top) → SVG point at radius r.
 function pt(angleDeg: number, r: number): [number, number] {
@@ -57,6 +50,7 @@ export default function TrackClock() {
   const model = useMemo(() => {
     const timing = state.timing ?? {};
     // Reference lap: the session's fastest lap, else the leader's last lap.
+    // It converts a time gap into a fraction of the ring.
     let refLap: number | null = null;
     for (const n of order) {
       const ms = lapMs(timing[n]?.bestLapTime?.value);
@@ -65,16 +59,7 @@ export default function TrackClock() {
     if (refLap == null && order[0]) refLap = lapMs(timing[order[0]]?.lastLapTime?.value);
     refLap = refLap ?? 90000;
 
-    // Time behind the leader (for the gap labels only).
-    const behind: Record<string, number> = {};
-    for (let i = 0; i < order.length; i++) {
-      const n = order[i];
-      behind[n] = i === 0 ? 0 : gapMs(timing[n]?.gapToLeader, refLap);
-    }
-    const ref = focus && behind[focus] != null ? focus : order[0];
-    const refBehind = behind[ref] ?? 0;
-
-    // The track's mini-sector layout (segment counts give sector lengths).
+    // The track's mini-sector layout (segment counts give sector arc lengths).
     let s1 = 0;
     let s2 = 0;
     let s3 = 0;
@@ -88,10 +73,8 @@ export default function TrackClock() {
     const f1 = total ? s1 / total : 1 / 3;
     const f2 = total ? (s1 + s2) / total : 2 / 3;
 
-    // Each car's position ON the lap = fraction of mini-sectors it has cleared
-    // this lap, so it sweeps around the clock like a hand.
-    let anyProgress = false;
-    const cars = order.map((n) => {
+    // A car's own physical track fraction (0..1), from mini-sectors cleared.
+    const miniFrac = (n: string): number => {
       const secs = timing[n]?.sectors ?? [];
       let passed = 0;
       for (let si = 0; si < 3; si++) {
@@ -99,7 +82,37 @@ export default function TrackClock() {
           if (seg.status != null && seg.status > 0) passed++;
         }
       }
-      const frac = total > 0 ? Math.min(0.999, passed / total) : 0;
+      return total > 0 ? Math.min(0.999, passed / total) : 0;
+    };
+
+    // Time (ms) a car is behind the leader, plus whether it's a lap or more down.
+    const gap = (n: string): { ms: number; lapped: boolean } => {
+      const s = String(timing[n]?.gapToLeader ?? "").trim();
+      const lap = s.match(/(\d+)\s*L\b/i);
+      if (lap) return { ms: parseInt(lap[1], 10) * (refLap as number), lapped: true };
+      const sec = s.match(/\+?\s*(\d+(?:\.\d+)?)/);
+      return { ms: sec ? parseFloat(sec[1]) * 1000 : 0, lapped: false };
+    };
+
+    const leader = order[0];
+    const leaderFrac = leader ? miniFrac(leader) : 0;
+
+    // Time behind leader (for gap labels); the reference is the leader or a click.
+    const behind: Record<string, number> = {};
+    for (const n of order) behind[n] = n === leader ? 0 : gap(n).ms;
+    const ref = focus && behind[focus] != null ? focus : leader;
+    const refBehind = behind[ref] ?? 0;
+
+    // Place each car on the ring: the leader at its own track position, everyone
+    // else behind it by their time gap, lapped cars by their own mini-sectors.
+    let anyProgress = leaderFrac > 0;
+    const cars = order.map((n) => {
+      const g = gap(n);
+      let frac: number;
+      if (n === leader) frac = leaderFrac;
+      else if (g.lapped) frac = miniFrac(n);
+      else frac = leaderFrac - g.ms / (refLap as number);
+      frac = ((frac % 1) + 1) % 1; // wrap into [0,1)
       if (frac > 0) anyProgress = true;
       const rel = (behind[n] ?? 0) - refBehind;
       return { n, angle: frac * 360, rel, behindLeader: behind[n] ?? 0 };

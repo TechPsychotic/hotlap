@@ -1,4 +1,4 @@
-import { useStore, orderByPosition, teamColour, lapMs } from "../store";
+import { useStore, orderByPosition, teamColour, lapMs, getGrid } from "../store";
 import type { LapTime, Sector } from "../types.gen";
 
 function lapClass(l?: LapTime | null): string {
@@ -69,10 +69,14 @@ export default function TimingTower() {
   // race gaps (it doesn't in qualifying).
   const bestMs: Record<string, number | null> = {};
   let pole: number | null = null;
+  let fastestNum: string | null = null;
   for (const num of order) {
     const ms = lapMs(state.timing?.[num]?.bestLapTime?.value);
     bestMs[num] = ms;
-    if (ms != null && (pole == null || ms < pole)) pole = ms;
+    if (ms != null && (pole == null || ms < pole)) {
+      pole = ms;
+      fastestNum = num; // session's fastest lap → purple in the Best column
+    }
   }
 
   return (
@@ -104,15 +108,11 @@ export default function TimingTower() {
               const tyre = ct?.compound ?? stints[stints.length - 1]?.compound ?? undefined;
               const tyreNew = ct?.new;
               const retired = t.retired || t.stopped;
-              // Places gained (+) / lost (−) vs the starting grid. LapSeries'
-              // first lap-position entry is the grid slot; fall back to the
-              // DriverList line only if we have no lap history yet.
-              const gridStr = state.lapSeries?.[num]?.lapPosition?.[0];
-              const grid = gridStr != null ? parseInt(gridStr, 10) : d.line ?? null;
+              // Places gained (+) / lost (−) measured from the race start (the
+              // grid slot, locked in the store), not from the previous lap.
+              const grid = getGrid(num);
               const posChg =
-                grid != null && !Number.isNaN(grid) && t.position != null
-                  ? grid - t.position
-                  : 0;
+                grid != null && t.position != null ? grid - t.position : 0;
               const sectors = t.sectors ?? [];
 
               // Gap / interval: prefer the feed's values; fall back to best-lap deltas.
@@ -152,7 +152,9 @@ export default function TimingTower() {
                   <SectorCell sector={sectors[1]} />
                   <SectorCell sector={sectors[2]} />
                   <td className={`tnum ${lapClass(t.lastLapTime)}`}>{t.lastLapTime?.value ?? ""}</td>
-                  <td className={`tnum ${lapClass(t.bestLapTime)}`}>{t.bestLapTime?.value ?? ""}</td>
+                  <td className={`tnum ${num === fastestNum ? "ob" : lapClass(t.bestLapTime)}`}>
+                    {t.bestLapTime?.value ?? ""}
+                  </td>
                   <td className="sd">
                     {(() => {
                       const sd = sectorDeltas[num];

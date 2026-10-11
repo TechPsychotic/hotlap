@@ -256,6 +256,43 @@ export function getFastestLap(): { driver: string; trace: LapTrace } | null {
   return best;
 }
 
+// ---- starting grid snapshot ---------------------------------------------
+// "Places gained / lost" must be measured from the *race start*, not the last
+// lap. The feed's `DriverList.line` tracks the *current* order, so it is
+// useless here; `LapSeries.lapPosition[0]` is the grid slot and is stable.
+// We lock each driver's grid position once so it can never drift.
+let gridPos: Record<string, number> = {};
+
+function resetGrid() {
+  gridPos = {};
+}
+
+function accumulateGrid(state: SessionState) {
+  const ls = state.lapSeries ?? {};
+  const timing = state.timing ?? {};
+  for (const n of Object.keys(timing)) {
+    // The authoritative grid slot, once LapSeries arrives — always trust it.
+    const g0 = ls[n]?.lapPosition?.[0];
+    if (g0 != null && g0 !== "") {
+      const v = parseInt(g0, 10);
+      if (!Number.isNaN(v)) {
+        gridPos[n] = v;
+        continue;
+      }
+    }
+    // Before LapSeries exists, fall back to the first position we ever see
+    // (early-race this is the grid); never overwrite once set.
+    if (gridPos[n] == null && timing[n]?.position != null) {
+      gridPos[n] = timing[n]!.position!;
+    }
+  }
+}
+
+/** A driver's starting-grid position (locked at race start), or null. */
+export function getGrid(n: string): number | null {
+  return gridPos[n] ?? null;
+}
+
 /** Parse "M:SS.mmm" or "SS.mmm" to milliseconds. */
 export function lapMs(v?: string | null): number | null {
   if (!v) return null;
@@ -354,9 +391,11 @@ export const useStore = create<Store>((set, get) => ({
         resetTrackPath();
         resetSectors();
         resetTelemetry();
+        resetGrid();
         accumulateTrail(msg.state);
         accumulateTrackPath(msg.state);
         accumulateTelemetry(msg.state);
+        accumulateGrid(msg.state);
         set({
           state: msg.state,
           trail: [...trailPts],
@@ -370,6 +409,7 @@ export const useStore = create<Store>((set, get) => ({
         const trailChanged = accumulateTrail(next);
         const pathChanged = accumulateTrackPath(next);
         accumulateTelemetry(next);
+        accumulateGrid(next);
         const deltas = updateSectors(next);
         set({
           state: next,
