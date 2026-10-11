@@ -555,3 +555,42 @@ button, select, .cmp-chip, .cmp-add {
 /* Commentary: live audio */
 .comm-audio { display: flex; flex-direction: column; gap: 5px; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 11px; flex: none; }
 .comm-audio-el { width: 100%; height: 30px; }
+
+/* ===================== Track Clock panel ===================== */
+.tclock { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; }
+.tclock-svg { width: 100%; height: 100%; max-width: 100%; display: block; }
+.tclock-ring { fill: none; stroke-width: 2.5; opacity: 0.5; }
+.tclock-tick { stroke: var(--line-2); stroke-width: 2; }
+.tclock-sf { stroke: #fff; stroke-width: 2.5; }
+.tclock-sec { fill: var(--dim); font: 600 10px var(--mono); }
+.tclock-sf-l { fill: var(--fg-dim); font: 700 10px var(--mono); }
+.tclock-lap { fill: var(--fg); font: 800 34px var(--sans); }
+.tclock-lap-t { fill: var(--dim); font-size: 18px; font-weight: 600; }
+.tclock-status { font: 700 11px var(--sans); letter-spacing: 1px; }
+.tclock-ref { fill: var(--fg-dim); font: 400 10px var(--sans); }
+.tclock-tla { font: 700 11px var(--sans); }
+.tclock-tla.pit { opacity: 0.55; }
+.tclock-gap { fill: var(--fg-dim); font: 500 9px var(--mono); }
+.tclock-car:hover .tclock-tla { text-decoration: underline; }
+.tclock-note { font-size: 11px; padding: 4px 10px 8px; text-align: center; }
+
+/* Timing tower: current tyre new (filled) vs used (dashed) */
+.tyre { display: inline-block; min-width: 16px; text-align: center; border: 1.5px solid currentColor; border-radius: 3px; padding: 0 3px; font-weight: 800; font-size: 11px; line-height: 15px; }
+.tyre.new { background: color-mix(in srgb, currentColor 22%, transparent); }
+.tyre.used { border-style: dashed; opacity: 0.8; }
+/* Fit all columns without horizontal scroll */
+.tt-table th, .tt-table td { padding-left: 5px; padding-right: 5px; }
+
+/* Live nav-bar clocks + tag */
+.live-clocks { display: flex; align-items: baseline; gap: 16px; }
+.lc-main { font-size: 17px; font-weight: 700; color: var(--fg); }
+.lc-sub { font-size: 13px; color: var(--fg-dim); }
+.lc-l { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); margin-left: 2px; }
+.live-tag { color: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 50%, var(--line-2)); font-weight: 700; letter-spacing: 1px; }
+
+/* Telemetry gated-in-live message */
+.tel-gated { padding: 22px; line-height: 1.7; text-align: center; }
+.tel-gated code { font-family: var(--mono); color: var(--cyan); background: rgba(65,214,224,0.08); padding: 1px 5px; border-radius: 4px; }
+
+/* Snap toggle active state */
+.panel-menu .ghost.on { color: var(--fg); border-color: var(--accent-soft); background: var(--panel-2); }

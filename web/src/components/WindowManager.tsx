@@ -3,7 +3,7 @@ import { Rnd } from "react-rnd";
 import { MIN_H, MIN_W, PANELS, TASKBAR_H, useWindows, type WinRect, type WinState } from "../windows";
 import { COMPONENTS } from "../panels";
 
-const SNAP = 10;
+const SNAP = 14;
 
 type Size = { w: number; h: number };
 
@@ -46,6 +46,7 @@ export default function WindowManager() {
   const close = useWindows((s) => s.close);
   const toggleMin = useWindows((s) => s.toggleMin);
   const toggleMax = useWindows((s) => s.toggleMax);
+  const snap = useWindows((s) => s.snap);
 
   const wmRef = useRef<HTMLDivElement | null>(null);
   const [cont, setCont] = useState<Size>({ w: 1600, h: 800 });
@@ -88,12 +89,12 @@ export default function WindowManager() {
             onDragStart={() => focus(p.id)}
             onResizeStart={() => focus(p.id)}
             onDragStop={(_e, d) => {
-              const snapped = snapMove({ x: d.x, y: d.y, w: w.w, h: w.h }, peersOf(p.id), cont);
-              setRect(p.id, snapped);
+              const raw = { x: d.x, y: d.y, w: w.w, h: w.h };
+              setRect(p.id, snap ? snapMove(raw, peersOf(p.id), cont) : { x: Math.max(0, d.x), y: Math.max(0, d.y) });
             }}
             onResizeStop={(_e, _dir, ref, _delta, pos) => {
               const raw = { x: pos.x, y: pos.y, w: ref.offsetWidth, h: ref.offsetHeight };
-              setRect(p.id, snapResize(raw, peersOf(p.id), cont));
+              setRect(p.id, snap ? snapResize(raw, peersOf(p.id), cont) : raw);
             }}
           >
             <div className="win" onMouseDown={() => focus(p.id)}>

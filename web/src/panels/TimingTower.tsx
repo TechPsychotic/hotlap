@@ -89,6 +89,7 @@ export default function TimingTower() {
               <th>S2</th>
               <th>S3</th>
               <th>Last</th>
+              <th>Best</th>
               <th>Δ</th>
               <th className="c">Tyre</th>
               <th className="r">Lap</th>
@@ -99,7 +100,9 @@ export default function TimingTower() {
               const d = state.drivers?.[num] ?? {};
               const t = state.timing?.[num] ?? {};
               const stints = state.stints?.[num] ?? [];
-              const tyre = stints[stints.length - 1]?.compound ?? undefined;
+              const ct = state.currentTyres?.[num];
+              const tyre = ct?.compound ?? stints[stints.length - 1]?.compound ?? undefined;
+              const tyreNew = ct?.new;
               const retired = t.retired || t.stopped;
               const sectors = t.sectors ?? [];
 
@@ -131,6 +134,7 @@ export default function TimingTower() {
                   <SectorCell sector={sectors[1]} />
                   <SectorCell sector={sectors[2]} />
                   <td className={`tnum ${lapClass(t.lastLapTime)}`}>{t.lastLapTime?.value ?? ""}</td>
+                  <td className={`tnum ${lapClass(t.bestLapTime)}`}>{t.bestLapTime?.value ?? ""}</td>
                   <td className="sd">
                     {(() => {
                       const sd = sectorDeltas[num];
@@ -146,7 +150,11 @@ export default function TimingTower() {
                   </td>
                   <td className="c">
                     {tyre ? (
-                      <span className="tyre" style={{ color: TYRE[tyre] ?? "var(--fg)" }}>
+                      <span
+                        className={`tyre ${tyreNew === true ? "new" : tyreNew === false ? "used" : ""}`}
+                        style={{ color: TYRE[tyre] ?? "var(--fg)" }}
+                        title={`${tyre}${tyreNew === true ? " · new" : tyreNew === false ? " · used" : ""}`}
+                      >
                         {tyre[0]}
                       </span>
                     ) : (

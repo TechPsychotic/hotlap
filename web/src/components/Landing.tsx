@@ -5,6 +5,7 @@
 // the core from Jolpica (Ergast).
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useStore } from "../store";
 
 interface Sess {
   label: string;
@@ -93,6 +94,7 @@ function archiveNames(
 
 export default function Landing({ onEnter }: { onEnter: () => void }) {
   const year = new Date().getFullYear();
+  const setLiveMode = useStore((s) => s.setLive);
   const [live, setLive] = useState<{ available: boolean; name?: string | null }>({ available: false });
   const [races, setRaces] = useState<Race[] | null>(null);
   const [err, setErr] = useState(false);
@@ -135,6 +137,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
   const goLive = async () => {
     setLoadErr(null);
     setLoading(live.name ? `Live · ${live.name}` : "Live session");
+    setLiveMode(true);
     try {
       const res = await fetch("/api/session/live", { method: "POST" });
       if (!res.ok) throw new Error("live");
@@ -166,6 +169,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
     }
     setLoadErr(null);
     setLoading(`${race.short} · ${sess.label}`);
+    setLiveMode(false);
     try {
       const res = await fetch("/api/session/load", {
         method: "POST",
@@ -277,7 +281,13 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
             <span className={`lx-live-dot ${live.available ? "on" : ""}`} />
             Live session
           </button>
-          <button className="lx-enter lx-replay" onClick={onEnter}>
+          <button
+            className="lx-enter lx-replay"
+            onClick={() => {
+              setLiveMode(false);
+              onEnter();
+            }}
+          >
             Replay session →
           </button>
         </div>

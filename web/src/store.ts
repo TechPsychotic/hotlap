@@ -43,6 +43,9 @@ interface Store {
   /** The driver (racing number) focused by detail panels. */
   focus: string | null;
   setFocus: (num: string | null) => void;
+  /** True when the workspace was entered via the live feed (vs a replay). */
+  live: boolean;
+  setLive: (b: boolean) => void;
   sendControl: (control: ReplayControl) => void;
   /** @internal wired by connect() */
   _ingest: (msg: ServerMessage) => void;
@@ -340,6 +343,8 @@ export const useStore = create<Store>((set, get) => ({
   sectorDeltas: {},
   focus: null,
   setFocus: (num) => set({ focus: num }),
+  live: false,
+  setLive: (b) => set({ live: b }),
   sendControl: (control) => socket?.send(JSON.stringify({ type: "replayControl", control })),
   _ingest: (msg) => {
     switch (msg.type) {

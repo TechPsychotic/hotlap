@@ -74,6 +74,7 @@ function resample(tr: LapTrace): (number | null)[] {
 
 export default function Telemetry() {
   const state = useStore((s) => s.state);
+  const live = useStore((s) => s.live);
   const focus = useStore((s) => s.focus);
   const setFocus = useStore((s) => s.setFocus);
   const [refs, setRefs] = useState<Ref[]>([]);
@@ -238,6 +239,18 @@ export default function Telemetry() {
     setRefs((cur) => (cur.some((x) => refKey(x) === refKey(r)) ? cur : [...cur, r]));
   };
   const removeRef = (r: Ref) => setRefs((cur) => cur.filter((x) => refKey(x) !== refKey(r)));
+
+  if (live) {
+    return (
+      <div className="panel tel">
+        <div className="empty tel-gated">
+          Live car telemetry (speed / throttle / brake) is gated behind F1&nbsp;TV.
+          <br />
+          Set <code>HOTLAP_F1_COOKIE</code> on the server to enable it, or watch a replay.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="panel tel">
