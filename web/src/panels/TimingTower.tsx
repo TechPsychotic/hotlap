@@ -104,6 +104,15 @@ export default function TimingTower() {
               const tyre = ct?.compound ?? stints[stints.length - 1]?.compound ?? undefined;
               const tyreNew = ct?.new;
               const retired = t.retired || t.stopped;
+              // Places gained (+) / lost (−) vs the starting grid. LapSeries'
+              // first lap-position entry is the grid slot; fall back to the
+              // DriverList line only if we have no lap history yet.
+              const gridStr = state.lapSeries?.[num]?.lapPosition?.[0];
+              const grid = gridStr != null ? parseInt(gridStr, 10) : d.line ?? null;
+              const posChg =
+                grid != null && !Number.isNaN(grid) && t.position != null
+                  ? grid - t.position
+                  : 0;
               const sectors = t.sectors ?? [];
 
               // Gap / interval: prefer the feed's values; fall back to best-lap deltas.
@@ -125,6 +134,15 @@ export default function TimingTower() {
                   <td className="drv">
                     <span className="bar" style={{ background: teamColour(d.teamColour) }} />
                     <b>{d.tla ?? num}</b>
+                    {posChg !== 0 && (
+                      <span
+                        className={`pc ${posChg > 0 ? "up" : "down"}`}
+                        title={`${posChg > 0 ? "Gained" : "Lost"} ${Math.abs(posChg)} place(s) since the start`}
+                      >
+                        {posChg > 0 ? "▲" : "▼"}
+                        {Math.abs(posChg)}
+                      </span>
+                    )}
                   </td>
                   <td className={`tnum ${t.inPit ? "yellow" : ""}`}>
                     {t.inPit ? "IN PIT" : gap}

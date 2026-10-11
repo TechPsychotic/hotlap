@@ -65,32 +65,49 @@ export default function TrackClock() {
     if (refLap == null && order[0]) refLap = lapMs(timing[order[0]]?.lastLapTime?.value);
     refLap = refLap ?? 90000;
 
-    // Absolute time behind the leader for each car (leader = 0).
+    // Time behind the leader (for the gap labels only).
     const behind: Record<string, number> = {};
-    let anyGap = false;
     for (let i = 0; i < order.length; i++) {
       const n = order[i];
-      if (i === 0) {
-        behind[n] = 0;
-        continue;
-      }
-      const g = timing[n]?.gapToLeader;
-      if (g) anyGap = true;
-      behind[n] = gapMs(g, refLap);
+      behind[n] = i === 0 ? 0 : gapMs(timing[n]?.gapToLeader, refLap);
     }
-
     const ref = focus && behind[focus] != null ? focus : order[0];
     const refBehind = behind[ref] ?? 0;
 
+    // The track's mini-sector layout (segment counts give sector lengths).
+    let s1 = 0;
+    let s2 = 0;
+    let s3 = 0;
+    for (const n of order) {
+      const secs = timing[n]?.sectors ?? [];
+      s1 = Math.max(s1, secs[0]?.segments?.length ?? 0);
+      s2 = Math.max(s2, secs[1]?.segments?.length ?? 0);
+      s3 = Math.max(s3, secs[2]?.segments?.length ?? 0);
+    }
+    const total = s1 + s2 + s3;
+    const f1 = total ? s1 / total : 1 / 3;
+    const f2 = total ? (s1 + s2) / total : 2 / 3;
+
+    // Each car's position ON the lap = fraction of mini-sectors it has cleared
+    // this lap, so it sweeps around the clock like a hand.
+    let anyProgress = false;
     const cars = order.map((n) => {
+      const secs = timing[n]?.sectors ?? [];
+      let passed = 0;
+      for (let si = 0; si < 3; si++) {
+        for (const seg of secs[si]?.segments ?? []) {
+          if (seg.status != null && seg.status > 0) passed++;
+        }
+      }
+      const frac = total > 0 ? Math.min(0.999, passed / total) : 0;
+      if (frac > 0) anyProgress = true;
       const rel = (behind[n] ?? 0) - refBehind;
-      const angle = ((((rel / refLap) * 360) % 360) + 360) % 360;
-      return { n, rel, angle, behindLeader: behind[n] ?? 0 };
+      return { n, angle: frac * 360, rel, behindLeader: behind[n] ?? 0 };
     });
-    return { refLap, ref, cars, anyGap };
+    return { refLap, ref, cars, f1, f2, anyProgress };
   }, [state.timing, order, focus]);
 
-  const { refLap, ref, cars, anyGap } = model;
+  const { refLap, ref, cars, f1, f2, anyProgress } = model;
   const st = STATUS[state.trackStatus?.status ?? ""] ?? { label: state.trackStatus?.message ?? "—", color: "var(--dim)" };
   const refTla = state.drivers?.[ref]?.tla ?? ref;
   const refLapStr = (() => {
@@ -108,18 +125,22 @@ export default function TrackClock() {
       <svg viewBox="0 0 400 400" className="tclock-svg">
         {/* ring + status tint */}
         <circle cx={CX} cy={CY} r={R} className="tclock-ring" style={{ stroke: st.color }} />
-        {/* sector / start-finish ticks (even thirds) */}
-        {[0, 120, 240].map((a) => {
+        {/* sector boundaries at their real lengths + S1/S2/S3 labels mid-arc */}
+        {[0, f1 * 360, f2 * 360].map((a, i) => {
           const [x1, y1] = pt(a, R - 8);
           const [x2, y2] = pt(a, R + 8);
-          const [lx, ly] = pt(a + 60, R - 20);
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} className={i === 0 ? "tclock-sf" : "tclock-tick"} />;
+        })}
+        {([
+          [(f1 / 2) * 360, "S1"],
+          [((f1 + f2) / 2) * 360, "S2"],
+          [((f2 + 1) / 2) * 360, "S3"],
+        ] as const).map(([a, lab]) => {
+          const [lx, ly] = pt(a, R - 20);
           return (
-            <g key={a}>
-              <line x1={x1} y1={y1} x2={x2} y2={y2} className={a === 0 ? "tclock-sf" : "tclock-tick"} />
-              <text x={lx} y={ly} className="tclock-sec" textAnchor="middle" dominantBaseline="middle">
-                {a === 0 ? "S1" : a === 120 ? "S2" : "S3"}
-              </text>
-            </g>
+            <text key={lab} x={lx} y={ly} className="tclock-sec" textAnchor="middle" dominantBaseline="middle">
+              {lab}
+            </text>
           );
         })}
         {/* start/finish marker at top */}
@@ -172,9 +193,9 @@ export default function TrackClock() {
           );
         })}
       </svg>
-      {!anyGap && (
+      {!anyProgress && (
         <div className="tclock-note dim">
-          On-track gaps appear during a race — in practice/qualifying everyone sits near the line.
+          Cars sweep around the clock as they complete mini-sectors — this fills in once a session is running.
         </div>
       )}
     </div>

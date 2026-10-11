@@ -594,3 +594,8 @@ button, select, .cmp-chip, .cmp-add {
 
 /* Snap toggle active state */
 .panel-menu .ghost.on { color: var(--fg); border-color: var(--accent-soft); background: var(--panel-2); }
+
+/* Timing tower: position gained/lost vs grid */
+.tt-table .pc { font-size: 9px; font-weight: 700; margin-left: 5px; letter-spacing: -0.5px; vertical-align: middle; }
+.pc.up { color: var(--green); }
+.pc.down { color: var(--accent-soft); }
