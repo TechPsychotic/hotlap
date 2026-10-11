@@ -49,21 +49,27 @@ export default function TrackClock() {
 
   const model = useMemo(() => {
     const timing = state.timing ?? {};
+    // Drop cars that have retired or stopped — they're no longer on track.
+    const active = order.filter((n) => {
+      const t = timing[n];
+      return !(t?.retired || t?.stopped);
+    });
+
     // Reference lap: the session's fastest lap, else the leader's last lap.
     // It converts a time gap into a fraction of the ring.
     let refLap: number | null = null;
-    for (const n of order) {
+    for (const n of active) {
       const ms = lapMs(timing[n]?.bestLapTime?.value);
       if (ms != null && (refLap == null || ms < refLap)) refLap = ms;
     }
-    if (refLap == null && order[0]) refLap = lapMs(timing[order[0]]?.lastLapTime?.value);
+    if (refLap == null && active[0]) refLap = lapMs(timing[active[0]]?.lastLapTime?.value);
     refLap = refLap ?? 90000;
 
     // The track's mini-sector layout (segment counts give sector arc lengths).
     let s1 = 0;
     let s2 = 0;
     let s3 = 0;
-    for (const n of order) {
+    for (const n of active) {
       const secs = timing[n]?.sectors ?? [];
       s1 = Math.max(s1, secs[0]?.segments?.length ?? 0);
       s2 = Math.max(s2, secs[1]?.segments?.length ?? 0);
@@ -94,19 +100,20 @@ export default function TrackClock() {
       return { ms: sec ? parseFloat(sec[1]) * 1000 : 0, lapped: false };
     };
 
-    const leader = order[0];
+    const leader = active[0];
     const leaderFrac = leader ? miniFrac(leader) : 0;
 
     // Time behind leader (for gap labels); the reference is the leader or a click.
     const behind: Record<string, number> = {};
-    for (const n of order) behind[n] = n === leader ? 0 : gap(n).ms;
+    for (const n of active) behind[n] = n === leader ? 0 : gap(n).ms;
+    // Keep a clicked car as the reference only while it's still running.
     const ref = focus && behind[focus] != null ? focus : leader;
     const refBehind = behind[ref] ?? 0;
 
     // Place each car on the ring: the leader at its own track position, everyone
     // else behind it by their time gap, lapped cars by their own mini-sectors.
     let anyProgress = leaderFrac > 0;
-    const cars = order.map((n) => {
+    const cars = active.map((n) => {
       const g = gap(n);
       let frac: number;
       if (n === leader) frac = leaderFrac;
