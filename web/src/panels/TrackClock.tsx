@@ -124,7 +124,43 @@ export default function TrackClock() {
       const rel = (behind[n] ?? 0) - refBehind;
       return { n, angle: frac * 360, rel, behindLeader: behind[n] ?? 0 };
     });
-    return { refLap, ref, cars, f1, f2, anyProgress };
+
+    // Declutter the text labels: dots stay at their true track angle, but the
+    // labels are spread to a minimum angular gap so nose-to-tail cars don't
+    // stack. Cut the ring at its largest gap to give the spread room to fan.
+    const labelAngle: Record<string, number> = {};
+    const nn = cars.length;
+    if (nn === 1) {
+      labelAngle[cars[0].n] = cars[0].angle;
+    } else if (nn > 1) {
+      const minSep = Math.min(15, 350 / nn);
+      const arr = cars.map((c) => ({ n: c.n, a: c.angle })).sort((x, y) => x.a - y.a);
+      let maxGap = -1;
+      let cut = 0;
+      for (let k = 0; k < nn; k++) {
+        const next = arr[(k + 1) % nn].a + (k + 1 === nn ? 360 : 0);
+        const g = next - arr[k].a;
+        if (g > maxGap) {
+          maxGap = g;
+          cut = (k + 1) % nn;
+        }
+      }
+      const seq: { n: string; a: number }[] = [];
+      for (let k = 0; k < nn; k++) {
+        const idx = (cut + k) % nn;
+        let a = arr[idx].a;
+        while (seq.length && a < seq[seq.length - 1].a) a += 360;
+        seq.push({ n: arr[idx].n, a });
+      }
+      const origSpan = seq[nn - 1].a - seq[0].a;
+      for (let k = 1; k < nn; k++) {
+        if (seq[k].a - seq[k - 1].a < minSep) seq[k].a = seq[k - 1].a + minSep;
+      }
+      const shift = -((seq[nn - 1].a - seq[0].a - origSpan) / 2); // recenter the block
+      for (const s of seq) labelAngle[s.n] = (((s.a + shift) % 360) + 360) % 360;
+    }
+    const carsOut = cars.map((c) => ({ ...c, labelAngle: labelAngle[c.n] ?? c.angle }));
+    return { refLap, ref, cars: carsOut, f1, f2, anyProgress };
   }, [state.timing, order, focus]);
 
   const { refLap, ref, cars, f1, f2, anyProgress } = model;
@@ -178,17 +214,26 @@ export default function TrackClock() {
         <text x={CX} y={CY + 42} className="tclock-ref dim" textAnchor="middle">Gap to {refTla}</text>
 
         {/* cars */}
-        {cars.map(({ n, rel, angle, behindLeader }) => {
+        {cars.map(({ n, rel, angle, labelAngle, behindLeader }) => {
           const [dx, dy] = pt(angle, R_DOT);
-          const [lx, ly] = pt(angle, R_LABEL);
-          const right = Math.sin((angle * Math.PI) / 180) >= 0;
+          const [lx, ly] = pt(labelAngle, R_LABEL);
+          const right = Math.sin((labelAngle * Math.PI) / 180) >= 0;
           const d = state.drivers?.[n] ?? {};
           const t = state.timing?.[n] ?? {};
           const col = teamColour(d.teamColour);
           const isRef = n === ref;
           const lapsDown = Math.floor(behindLeader / refLap);
+          // When a label is pulled off its dot, draw a faint connector so it's
+          // clear which marker it belongs to.
+          let dl = Math.abs(labelAngle - angle) % 360;
+          if (dl > 180) dl = 360 - dl;
+          const [cx0, cy0] = pt(angle, R + 2);
+          const [cx1, cy1] = pt(labelAngle, R_LABEL - 8);
           return (
             <g key={n} className="tclock-car" onClick={() => setFocus(n)} style={{ cursor: "pointer" }}>
+              {dl > 4 && (
+                <line x1={cx0} y1={cy0} x2={cx1} y2={cy1} stroke={col} strokeOpacity={0.3} strokeWidth={0.6} />
+              )}
               <circle cx={dx} cy={dy} r={isRef ? 6 : focus === n ? 6 : 4.5} fill={col} stroke={isRef ? "#fff" : "rgba(0,0,0,.5)"} strokeWidth={isRef ? 1.6 : 1} />
               <g transform={`translate(${lx}, ${ly})`}>
                 <text
