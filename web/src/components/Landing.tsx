@@ -47,7 +47,7 @@ function parseRaces(d: unknown): Race[] {
     return {
       round: String(r.round),
       raceName: r.raceName,
-      short: String(r.raceName).replace(/ Grand Prix$/, ""),
+      short: String(r.raceName).replace(/ grand prix.*$/i, ""),
       circuitName: r.Circuit?.circuitName ?? "",
       locality: r.Circuit?.Location?.locality ?? "",
       country: r.Circuit?.Location?.country ?? "",
@@ -77,6 +77,18 @@ const SESSION_MATCH: Record<string, RegExp> = {
   Race: /^race/i,
 };
 
+/** Reduce a GP name to its core location token so the Jolpica calendar and the
+ *  F1 archive match even when their wording differs — e.g. Jolpica's
+ *  "Bahrain Grand Prix in Malaysia" vs the archive's "Bahrain Grand Prix". */
+function normName(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\bgrand prix\b/g, "")
+    .replace(/\bin\b[\s\S]*$/, "") // drop a trailing "in <place>" host qualifier
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 /** Map a Jolpica race + session label to the archive's exact event/session names. */
 function archiveNames(
   idx: IndexEvent[] | null,
@@ -84,9 +96,11 @@ function archiveNames(
   label: string,
 ): { event: string; session: string } | null {
   if (!idx) return null;
-  const lc = (s: string) => s.toLowerCase();
-  const short = lc(raceName.replace(/ Grand Prix$/, ""));
-  const ev = idx.find((e) => lc(e.name) === lc(raceName)) || idx.find((e) => lc(e.name).includes(short));
+  const nj = normName(raceName);
+  const ev = idx.find((e) => {
+    const na = normName(e.name);
+    return na === nj || (na !== "" && nj !== "" && (na.includes(nj) || nj.includes(na)));
+  });
   const re = SESSION_MATCH[label];
   const sess = ev && re ? ev.sessions.find((s) => re.test(s.name)) : undefined;
   return ev && sess ? { event: ev.name, session: sess.name } : null;

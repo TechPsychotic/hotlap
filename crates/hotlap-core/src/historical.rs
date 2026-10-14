@@ -419,20 +419,30 @@ fn strip_html(s: &str) -> String {
 async fn get_text(client: &reqwest::Client, url: &str, cache: Option<&Path>) -> Result<String> {
     if let Some(dir) = cache {
         let name = url.split("static/").nth(1).unwrap_or(url).replace('/', "_");
-        let path = dir.join(name);
-        if path.is_file() {
+        let path = dir.join(&name);
+        // The season `Index.json` is mutable — new events are appended as they
+        // run — so it must never be served from a stale cache, or sessions that
+        // were published after the first fetch (a recent race) stay invisible.
+        // The per-session `.jsonStream` files are immutable, so they stay cached.
+        let is_index = name.ends_with("Index.json");
+        if path.is_file() && !is_index {
             return Ok(std::fs::read_to_string(&path)?);
         }
-        let text = client
-            .get(url)
-            .send()
-            .await?
-            .error_for_status()?
-            .text()
-            .await?;
-        std::fs::create_dir_all(dir)?;
-        std::fs::write(&path, &text)?;
-        Ok(text)
+        let fetched = async {
+            let r = client.get(url).send().await?.error_for_status()?;
+            Ok::<String, Error>(r.text().await?)
+        }
+        .await;
+        match fetched {
+            Ok(text) => {
+                std::fs::create_dir_all(dir)?;
+                std::fs::write(&path, &text)?;
+                Ok(text)
+            }
+            // On a network failure, fall back to a cached index if we have one.
+            Err(_) if is_index && path.is_file() => Ok(std::fs::read_to_string(&path)?),
+            Err(e) => Err(e),
+        }
     } else {
         Ok(client
             .get(url)
