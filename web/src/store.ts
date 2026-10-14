@@ -293,6 +293,42 @@ export function getGrid(n: string): number | null {
   return gridPos[n] ?? null;
 }
 
+// ---- session elapsed timer ----------------------------------------------
+// The nav bar shows a count-up "time since the session started" beside the
+// countdown. It is measured from the session's scheduled start to the feed's
+// own clock timestamp (not the wall clock), so it is correct in both live and
+// replay and independent of when the client connected.
+
+/** True if an ISO string already carries a timezone (Z or ±HH:MM). */
+function hasTz(s: string): boolean {
+  return /[zZ]$/.test(s) || /[+-]\d{2}:\d{2}$/.test(s);
+}
+
+/** Normalize a GMT offset like `04:00:00` / `+8:00` to `±HH:MM`. */
+function normOffset(off?: string | null): string {
+  const m = (off ?? "").match(/([+-]?)(\d{1,2}):(\d{2})/);
+  if (!m) return "Z";
+  const sign = m[1] === "-" ? "-" : "+";
+  return `${sign}${m[2].padStart(2, "0")}:${m[3]}`;
+}
+
+/** Milliseconds elapsed from the session's scheduled start to the clock's UTC
+ *  timestamp, or null if either is missing/unparseable. */
+export function getSessionElapsedMs(
+  startDate?: string | null,
+  gmtOffset?: string | null,
+  clockUtc?: string | null,
+): number | null {
+  if (!startDate || !clockUtc) return null;
+  const startIso = hasTz(startDate) ? startDate : startDate + normOffset(gmtOffset);
+  const utcIso = hasTz(clockUtc) ? clockUtc : clockUtc + "Z";
+  const s = Date.parse(startIso);
+  const u = Date.parse(utcIso);
+  if (Number.isNaN(s) || Number.isNaN(u)) return null;
+  const e = u - s;
+  return e >= 0 ? e : null;
+}
+
 /** Parse "M:SS.mmm" or "SS.mmm" to milliseconds. */
 export function lapMs(v?: string | null): number | null {
   if (!v) return null;

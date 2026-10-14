@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useStore } from "../store";
+import { useStore, getSessionElapsedMs } from "../store";
 import { useWindows } from "../windows";
 import TransportBar from "./TransportBar";
 import SessionPicker from "./SessionPicker";
@@ -33,6 +33,15 @@ function toggleTheme() {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/** Format a millisecond duration as H:MM:SS (or M:SS under an hour). */
+function fmtDur(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const se = s % 60;
+  return h > 0 ? `${h}:${pad(m)}:${pad(se)}` : `${m}:${pad(se)}`;
+}
+
 /** Local wall-clock time at the circuit, from the session's GMT offset. */
 function trackLocalTime(gmtOffset: string | null | undefined, nowMs: number): string | null {
   const m = (gmtOffset ?? "").match(/([+-]?)(\d{1,2}):(\d{2})/);
@@ -61,6 +70,9 @@ export default function TopBar({ onHome }: { onHome?: () => void }) {
     return () => clearInterval(t);
   }, [live]);
   const trackTime = live ? trackLocalTime(session?.gmtOffset, now) : null;
+  const elapsedMs = live
+    ? getSessionElapsedMs(session?.startDate, session?.gmtOffset, clock?.utc)
+    : null;
 
   const title = [session?.meetingName, session?.sessionName].filter(Boolean).join("  ·  ");
 
@@ -92,6 +104,11 @@ export default function TopBar({ onHome }: { onHome?: () => void }) {
           {trackTime && (
             <span className="lc-main tnum" title="Local time at the circuit">
               {trackTime} <span className="lc-l">track time</span>
+            </span>
+          )}
+          {elapsedMs != null && (
+            <span className="lc-sub tnum" title="Time since the session started">
+              {fmtDur(elapsedMs)} <span className="lc-l">elapsed</span>
             </span>
           )}
           {clock?.remaining && (
