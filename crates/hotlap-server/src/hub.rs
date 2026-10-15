@@ -148,28 +148,56 @@ impl Hub {
             pos_stride: pos_stride.max(1),
             cache_dir: self.cache_dir.clone(),
         };
-        match historical::fetch(year, &event, &session, &opts).await {
-            Ok(fetched) => {
-                self.engine.reset_state(Default::default());
-                let events = compute_events(&fetched.recording);
-                // The web replays the compiled timeline client-side (per tab), so
-                // the server runs no replay for it — it just serves the timeline.
-                // The recording is dropped once compiled.
-                let timeline = {
-                    let tl = hotlap_core::compile_timeline(&fetched.recording);
-                    serde_json::to_string(&tl).ok().map(Arc::<str>::from)
-                };
-                let mut inner = self.inner.lock().await;
-                inner.name = Some(fetched.name);
-                inner.events = events;
-                inner.timeline = timeline;
-                inner.loading = false;
+        // Primary source: the F1 live-timing archive (full telemetry). A 401/
+        // network failure, or a "success" with no actual data (the archive can
+        // 401 every stream while still naming the session), both fall through to
+        // the Ergast/Jolpica fallback below.
+        let primary = historical::fetch(year, &event, &session, &opts).await;
+        let primary = match primary {
+            Ok(f) if !f.recording.messages.is_empty() => Some(f),
+            Ok(_) => {
+                tracing::warn!("live-timing archive returned no data; trying fallback");
+                None
             }
             Err(e) => {
-                tracing::warn!(error = %e, "historical load failed");
-                let mut inner = self.inner.lock().await;
-                inner.loading = false;
-                inner.error = Some(e.to_string());
+                tracing::warn!(error = %e, "live-timing archive load failed; trying fallback");
+                None
+            }
+        };
+
+        let built = if let Some(fetched) = primary {
+            let events = compute_events(&fetched.recording);
+            let tl = hotlap_core::compile_timeline(&fetched.recording);
+            serde_json::to_string(&tl)
+                .ok()
+                .map(|json| (fetched.name, Arc::<str>::from(json), events))
+        } else {
+            // Fallback: a basic race (positions, lap times, gaps) from Ergast.
+            match hotlap_core::fallback::fetch(year, &event).await {
+                Ok(fb) => serde_json::to_string(&fb.timeline)
+                    .ok()
+                    .map(|json| (fb.name, Arc::<str>::from(json), Vec::new())),
+                Err(e) => {
+                    tracing::warn!(error = %e, "fallback source also failed");
+                    None
+                }
+            }
+        };
+
+        let mut inner = self.inner.lock().await;
+        inner.loading = false;
+        match built {
+            Some((name, timeline, events)) => {
+                inner.name = Some(name);
+                inner.events = events;
+                inner.timeline = Some(timeline);
+            }
+            None => {
+                inner.error = Some(
+                    "This session isn't available from the F1 archive right now, and the \
+                     fallback source has no data for it."
+                        .into(),
+                );
             }
         }
     }
