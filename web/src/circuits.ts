@@ -50,21 +50,45 @@ const STOP = new Set([
   "gp",
 ]);
 
-/** Best-matching circuit outline for a session, by circuit/country/meeting name. */
+// Known circuit-location aliases: the feed's location/circuit name → extra
+// tokens that appear in the geo dataset. Covers cases where a GP is held at a
+// venue whose common name differs from the city the feed reports (e.g. a race
+// branded "Bahrain Grand Prix" actually run at Sepang, reported as
+// "Kuala Lumpur"), so the outline follows the real circuit, not the GP name.
+const LOCATION_ALIASES: Record<string, string[]> = {
+  "kuala lumpur": ["sepang"],
+};
+
+/** Split text into meaningful lowercase word tokens (drops filler + short words). */
+function words(s?: string | null): string[] {
+  return norm(s)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((w) => w.length >= 3 && !STOP.has(w));
+}
+
+/** Best-matching circuit outline for a session. The *circuit/location* name is
+ *  the ground truth for geography and is weighted far above the country and the
+ *  meeting (GP) name, which can be misleading when a Grand Prix is hosted away
+ *  from its usual venue. Matching is on whole words, so "Monte Carlo" can't
+ *  leak into "José Carlos" (Interlagos). */
 export function matchCircuit(
   features: Feature[],
   session: { circuit?: string | null; country?: string | null; meetingName?: string | null },
 ): LngLat[] | null {
-  const tokens = [norm(session.circuit), norm(session.country), norm(session.meetingName)];
+  const circuitTxt = norm(session.circuit);
+  // [tokens, weight] — the actual circuit dominates; country/meeting break ties.
+  const weighted: [string[], number][] = [
+    [[...words(session.circuit), ...(LOCATION_ALIASES[circuitTxt] ?? [])], 3],
+    [words(session.country), 1],
+    [words(session.meetingName), 1],
+  ];
   let best: Feature | null = null;
   let bestScore = 0;
   for (const f of features) {
-    const hay = `${norm(f.properties.Location)} ${norm(f.properties.Name)}`;
+    const hay = new Set([...words(f.properties.Location), ...words(f.properties.Name)]);
     let score = 0;
-    for (const t of tokens) {
-      for (const w of t.split(/\s+/)) {
-        if (w.length >= 3 && !STOP.has(w) && hay.includes(w)) score++;
-      }
+    for (const [toks, weight] of weighted) {
+      for (const w of toks) if (hay.has(w)) score += weight;
     }
     if (score > bestScore) {
       bestScore = score;
