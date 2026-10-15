@@ -34,6 +34,7 @@ export const PANELS: PanelDef[] = [
   { id: "radio", title: "Team Radio", component: "radio" },
   // Closed by default — opened from the taskbar when wanted.
   { id: "telemetry", title: "Telemetry", component: "telemetry", defaultOpen: false },
+  { id: "comparison", title: "Driver Comparison", component: "driverComparison", defaultOpen: false },
   { id: "strategy", title: "Strategy", component: "strategy", defaultOpen: false },
   { id: "weather", title: "Weather", component: "weather", defaultOpen: false },
   { id: "racechart", title: "Race Chart", component: "raceChart", defaultOpen: false },
@@ -70,6 +71,7 @@ export function layout(): Record<string, WinRect> {
     radio: { x: commX, y: botY + commH + g, w: commW, h: botH - commH - g },
     // Closed-by-default panels: sensible spot when opened from the taskbar.
     telemetry: { x: rx, y: botY, w: Math.round(rw * 0.62), h: botH },
+    comparison: { x: Math.round(W * 0.2), y: Math.round(g + H * 0.12), w: Math.round(W * 0.56), h: Math.round(H * 0.6) },
     strategy: { x: commX, y: botY, w: commW, h: botH },
     weather: { x: rx, y: Math.round(botY + botH * 0.2), w: Math.min(360, clockW), h: Math.round(botH * 0.6) },
     racechart: { x: Math.round(W * 0.18), y: Math.round(g + H * 0.1), w: Math.round(W * 0.5), h: Math.round(H * 0.62) },

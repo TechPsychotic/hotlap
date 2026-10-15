@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import TimingTower from "./TimingTower";
 import Telemetry from "./Telemetry";
+import DriverComparison from "./DriverComparison";
 import Strategy from "./Strategy";
 import Weather from "./Weather";
 import TrackDetails from "./TrackDetails";
@@ -14,6 +15,7 @@ import TrackClock from "./TrackClock";
 export const COMPONENTS: Record<string, ComponentType> = {
   timingTower: TimingTower,
   telemetry: Telemetry,
+  driverComparison: DriverComparison,
   strategy: Strategy,
   weather: Weather,
   trackDetails: TrackDetails,
