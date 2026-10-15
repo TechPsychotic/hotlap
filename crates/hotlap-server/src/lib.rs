@@ -158,8 +158,11 @@ async fn years_handler() -> Json<&'static [i32]> {
     Json(historical::AVAILABLE_YEARS)
 }
 
-async fn index_handler(Path(year): Path<i32>) -> Response {
-    match historical::index(year, None).await {
+async fn index_handler(State(state): State<AppState>, Path(year): Path<i32>) -> Response {
+    // Pass the cache dir so a cached index can be served (TTL) and used as a
+    // fallback when the archive is unreachable or rate-limiting us.
+    let cache = state.hub.cache_dir();
+    match historical::index(year, cache.as_deref()).await {
         Ok(events) => Json(events).into_response(),
         Err(e) => (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
     }

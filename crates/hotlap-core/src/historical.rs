@@ -8,6 +8,7 @@
 //! caches, and replays on demand.
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use hotlap_schema::RawMessage;
 
@@ -415,18 +416,31 @@ fn strip_html(s: &str) -> String {
         .join(" ")
 }
 
+/// How long a cached season `Index.json` is served before we refetch it. Short
+/// enough that newly-run events appear quickly, long enough that we never hammer
+/// (and get rate-limited / 401'd by) the archive.
+const INDEX_TTL: Duration = Duration::from_secs(15 * 60);
+
 /// Fetch a URL as text, caching the raw body on disk when `cache` is set.
 async fn get_text(client: &reqwest::Client, url: &str, cache: Option<&Path>) -> Result<String> {
     if let Some(dir) = cache {
         let name = url.split("static/").nth(1).unwrap_or(url).replace('/', "_");
         let path = dir.join(&name);
-        // The season `Index.json` is mutable — new events are appended as they
-        // run — so it must never be served from a stale cache, or sessions that
-        // were published after the first fetch (a recent race) stay invisible.
-        // The per-session `.jsonStream` files are immutable, so they stay cached.
+        // Per-session `.jsonStream` files are immutable, so once cached they are
+        // served forever. The season `Index.json` is mutable (events are appended
+        // as they run), so it is refetched — but only after a TTL, and with a
+        // fallback to the cached copy if the fetch fails, so a stale index never
+        // hides a new event yet an archive outage never breaks the picker.
         let is_index = name.ends_with("Index.json");
-        if path.is_file() && !is_index {
-            return Ok(std::fs::read_to_string(&path)?);
+        if path.is_file() {
+            let fresh = !is_index
+                || std::fs::metadata(&path)
+                    .and_then(|m| m.modified())
+                    .map(|t| t.elapsed().map(|e| e < INDEX_TTL).unwrap_or(false))
+                    .unwrap_or(false);
+            if fresh {
+                return Ok(std::fs::read_to_string(&path)?);
+            }
         }
         let fetched = async {
             let r = client.get(url).send().await?.error_for_status()?;
@@ -439,7 +453,8 @@ async fn get_text(client: &reqwest::Client, url: &str, cache: Option<&Path>) -> 
                 std::fs::write(&path, &text)?;
                 Ok(text)
             }
-            // On a network failure, fall back to a cached index if we have one.
+            // Fetch failed (network, 401 rate-limit, …): serve a cached index if
+            // we have one rather than breaking the picker.
             Err(_) if is_index && path.is_file() => Ok(std::fs::read_to_string(&path)?),
             Err(e) => Err(e),
         }

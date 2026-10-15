@@ -84,6 +84,11 @@ impl Hub {
         inner.name = Some(name);
     }
 
+    /// The historical download cache directory, if configured.
+    pub fn cache_dir(&self) -> Option<PathBuf> {
+        self.cache_dir.clone()
+    }
+
     /// Set the timeline events for the current session.
     pub async fn set_events(&self, events: Vec<SessionEvent>) {
         self.inner.lock().await.events = events;
