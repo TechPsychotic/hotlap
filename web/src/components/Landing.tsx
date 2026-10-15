@@ -5,7 +5,7 @@
 // the core from Jolpica (Ergast).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useStore } from "../store";
+import { useStore, startLocalTimeline, stopLocalTimeline } from "../store";
 
 interface Sess {
   label: string;
@@ -151,6 +151,7 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
   const goLive = async () => {
     setLoadErr(null);
     setLoading(live.name ? `Live · ${live.name}` : "Live session");
+    stopLocalTimeline(); // live uses the WebSocket source
     setLiveMode(true);
     try {
       const res = await fetch("/api/session/live", { method: "POST" });
@@ -188,7 +189,15 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
       const res = await fetch("/api/session/load", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ year, event: names.event, session: names.session }),
+        // Thin out the high-rate car/position streams: it keeps the downloaded
+        // timeline (and the local fold on seek) light without hurting the traces.
+        body: JSON.stringify({
+          year,
+          event: names.event,
+          session: names.session,
+          car_stride: 2,
+          pos_stride: 2,
+        }),
       });
       if (!res.ok) throw new Error("load");
       for (let i = 0; i < 90; i++) {
@@ -200,6 +209,9 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
           return;
         }
         if (!st.loading && st.name) {
+          // Switch to the per-tab local timeline player (falls back to the
+          // shared WebSocket source if no timeline is available).
+          await startLocalTimeline();
           onEnter();
           return;
         }
@@ -297,8 +309,11 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
           </button>
           <button
             className="lx-enter lx-replay"
-            onClick={() => {
+            onClick={async () => {
               setLiveMode(false);
+              // Resume a loaded session as a per-tab local replay if the server
+              // has one compiled; otherwise fall back to the WebSocket source.
+              await startLocalTimeline();
               onEnter();
             }}
           >

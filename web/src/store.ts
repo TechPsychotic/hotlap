@@ -33,6 +33,9 @@ interface Store {
   /** The normalized session state; replaced immutably on every patch. */
   state: SessionState;
   replay: ReplayStatus | null;
+  /** "ws" = state from the server socket; "local" = folding a downloaded
+   *  timeline on our own clock (per-tab historical replay). */
+  mode: "ws" | "local";
   /** Accumulated unique track positions (the circuit outline), maintained in
    *  the store so it survives panels being hidden/unmounted. */
   trail: XY[];
@@ -407,10 +410,164 @@ function updateSectors(state: SessionState): Record<string, SectorDelta> | null 
   return deltas;
 }
 
+// ---- client-side local replay player ------------------------------------
+// For historical sessions the server ships a pre-compiled patch timeline
+// (`/api/session/timeline`). We fold it locally on our own clock, so replay is
+// independent per tab, seeking rebuilds full history client-side, and the
+// server does no per-seek work.
+
+interface Frame {
+  t: number;
+  patch: unknown;
+}
+
+let localMode = false;
+let locFrames: Frame[] = [];
+let locDur = 0;
+let locCursor = 0; // index of the next unapplied frame
+let locPlayhead = 0; // ms
+let locPlaying = false;
+let locSpeed = 1;
+let locState: SessionState = EMPTY_STATE;
+let locTimer: ReturnType<typeof setInterval> | null = null;
+let locLastWall = 0;
+
+function locStatus(): ReplayStatus {
+  return {
+    source: "historical",
+    playing: locPlaying,
+    speed: locSpeed,
+    positionMs: Math.round(locPlayhead),
+    durationMs: locDur,
+  } as ReplayStatus;
+}
+
+function locResetDerived() {
+  resetTrail();
+  resetTrackPath();
+  resetSectors();
+  resetTelemetry();
+  resetGrid();
+  locState = EMPTY_STATE;
+  locCursor = 0;
+  locPlayhead = 0;
+}
+
+/** Fold every frame up to `target` ms into the local state + derived history. */
+function locAdvanceTo(target: number) {
+  let trailCh = false;
+  let pathCh = false;
+  let deltas: Record<string, SectorDelta> | null = null;
+  while (locCursor < locFrames.length && locFrames[locCursor].t <= target) {
+    locState = mergePatch(locState, locFrames[locCursor].patch);
+    if (accumulateTrail(locState)) trailCh = true;
+    if (accumulateTrackPath(locState)) pathCh = true;
+    accumulateTelemetry(locState);
+    accumulateGrid(locState);
+    const d = updateSectors(locState);
+    if (d) deltas = d;
+    locCursor++;
+  }
+  locPlayhead = Math.min(target, locDur);
+  useStore.setState({
+    state: locState,
+    replay: locStatus(),
+    ...(trailCh ? { trail: [...trailPts] } : {}),
+    ...(pathCh ? { trackPath: [...trackPts] } : {}),
+    ...(deltas ? { sectorDeltas: deltas } : {}),
+  });
+}
+
+function locTick() {
+  if (!localMode || !locPlaying) return;
+  const now = performance.now();
+  const dt = now - locLastWall;
+  locLastWall = now;
+  if (locCursor >= locFrames.length) {
+    locPlaying = false;
+    locPlayhead = locDur;
+    useStore.setState({ replay: locStatus() });
+    return;
+  }
+  locAdvanceTo(locPlayhead + dt * locSpeed);
+}
+
+function locSeek(target: number) {
+  const t = Math.max(0, Math.min(target, locDur));
+  // Seeking backwards means re-folding from the start to rebuild all history.
+  if (t < locPlayhead) locResetDerived();
+  locAdvanceTo(t);
+}
+
+function locHandleControl(c: ReplayControl) {
+  switch (c.action) {
+    case "play":
+      if (locCursor >= locFrames.length) locSeek(0);
+      locPlaying = true;
+      locLastWall = performance.now();
+      break;
+    case "pause":
+      locPlaying = false;
+      break;
+    case "setSpeed":
+      locSpeed = Math.max(0.01, c.speed ?? 1);
+      break;
+    case "seek":
+      locSeek(c.offsetMs ?? 0);
+      break;
+  }
+  useStore.setState({ replay: locStatus() });
+}
+
+/** Stop the local player and fall back to the WebSocket source. */
+export function stopLocalTimeline() {
+  localMode = false;
+  locPlaying = false;
+  if (locTimer) {
+    clearInterval(locTimer);
+    locTimer = null;
+  }
+  locFrames = [];
+  useStore.setState({ mode: "ws" });
+}
+
+/** Fetch the loaded session's timeline and start playing it locally. Returns
+ *  false if no timeline is available (caller should keep using the WS source). */
+export async function startLocalTimeline(): Promise<boolean> {
+  let tl: { durationMs?: number; frames?: Frame[] } | null = null;
+  try {
+    const res = await fetch("/api/session/timeline");
+    if (!res.ok) return false; // 204 = live source, no timeline
+    tl = await res.json();
+  } catch {
+    return false;
+  }
+  if (!tl || !Array.isArray(tl.frames)) return false;
+  locFrames = tl.frames;
+  locDur = tl.durationMs ?? (locFrames.length ? locFrames[locFrames.length - 1].t : 0);
+  localMode = true;
+  locSpeed = 1;
+  locResetDerived();
+  locPlaying = true;
+  locLastWall = performance.now();
+  if (locTimer) clearInterval(locTimer);
+  locTimer = setInterval(locTick, 100);
+  useStore.setState({
+    mode: "local",
+    state: EMPTY_STATE,
+    trail: [],
+    trackPath: [],
+    sectorDeltas: {},
+    replay: locStatus(),
+  });
+  return true;
+}
+
 export const useStore = create<Store>((set, get) => ({
   conn: "connecting",
   state: EMPTY_STATE,
   replay: null,
+  mode: "ws",
   trail: [],
   trackPath: [],
   sectorDeltas: {},
@@ -418,8 +575,16 @@ export const useStore = create<Store>((set, get) => ({
   setFocus: (num) => set({ focus: num }),
   live: false,
   setLive: (b) => set({ live: b }),
-  sendControl: (control) => socket?.send(JSON.stringify({ type: "replayControl", control })),
+  sendControl: (control) => {
+    if (localMode) {
+      locHandleControl(control);
+      return;
+    }
+    socket?.send(JSON.stringify({ type: "replayControl", control }));
+  },
   _ingest: (msg) => {
+    // While a local timeline is playing, ignore the WebSocket source entirely.
+    if (localMode) return;
     switch (msg.type) {
       case "snapshot": {
         // A snapshot means a fresh/reseeked session: restart derived state.

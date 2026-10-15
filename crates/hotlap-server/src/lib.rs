@@ -62,6 +62,7 @@ pub fn router(hub: Arc<Hub>) -> Router {
         .route("/api/session/live", post(live_handler))
         .route("/api/live/available", get(live_available_handler))
         .route("/api/session/status", get(session_status_handler))
+        .route("/api/session/timeline", get(timeline_handler))
         .route("/api/events", get(events_handler))
         .with_state(state);
 
@@ -239,6 +240,19 @@ async fn session_status_handler(State(state): State<AppState>) -> Json<hub::Load
 
 async fn events_handler(State(state): State<AppState>) -> Json<Vec<hotlap_core::SessionEvent>> {
     Json(state.hub.events().await)
+}
+
+/// The loaded session's foldable replay timeline (pre-serialized JSON), for the
+/// web client to run replay locally. 204 when the current source is live.
+async fn timeline_handler(State(state): State<AppState>) -> Response {
+    match state.hub.timeline().await {
+        Some(json) => (
+            [(axum::http::header::CONTENT_TYPE, "application/json")],
+            json.to_string(),
+        )
+            .into_response(),
+        None => StatusCode::NO_CONTENT.into_response(),
+    }
 }
 
 async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {

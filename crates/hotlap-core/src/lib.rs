@@ -14,11 +14,13 @@ pub mod merge;
 pub mod parser;
 pub mod recording;
 pub mod replay;
+pub mod timeline;
 
 pub use engine::Engine;
 pub use events::{compute_events, SessionEvent};
 pub use recording::{Recorder, Recording};
 pub use replay::{spawn as spawn_replay, ReplayHandle};
+pub use timeline::{compile as compile_timeline, Timeline};
 
 use std::collections::HashSet;
 use std::sync::Arc;

@@ -4,8 +4,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use hotlap_core::{compute_events, historical, spawn_replay, Engine, ReplayHandle, SessionEvent};
-use hotlap_schema::{RawMessage, ReplayControl, SourceKind};
+use hotlap_core::{compute_events, historical, Engine, ReplayHandle, SessionEvent};
+use hotlap_schema::{RawMessage, ReplayControl};
 use serde::Serialize;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::AbortHandle;
@@ -41,6 +41,9 @@ struct Inner {
     loading: bool,
     error: Option<String>,
     events: Vec<SessionEvent>,
+    /// Pre-serialized client-side replay timeline for the loaded session (web
+    /// clients fold this locally). `None` for live sources.
+    timeline: Option<Arc<str>>,
 }
 
 impl Inner {
@@ -91,6 +94,12 @@ impl Hub {
         self.inner.lock().await.events.clone()
     }
 
+    /// The loaded session's client-side replay timeline (pre-serialized JSON),
+    /// if any. Web clients fetch this and run replay locally.
+    pub async fn timeline(&self) -> Option<Arc<str>> {
+        self.inner.lock().await.timeline.clone()
+    }
+
     /// The current replay control sender, if any.
     pub async fn control(&self) -> Option<mpsc::Sender<ReplayControl>> {
         self.inner.lock().await.replay.as_ref().map(|h| h.control())
@@ -123,6 +132,7 @@ impl Hub {
             inner.stop_sources();
             inner.name = None;
             inner.events.clear();
+            inner.timeline = None;
         }
         self.engine.reset_state(Default::default());
 
@@ -137,17 +147,17 @@ impl Hub {
             Ok(fetched) => {
                 self.engine.reset_state(Default::default());
                 let events = compute_events(&fetched.recording);
-                let handle = spawn_replay(
-                    self.engine.clone(),
-                    fetched.recording,
-                    SourceKind::Historical,
-                    1.0,
-                    true,
-                );
+                // The web replays the compiled timeline client-side (per tab), so
+                // the server runs no replay for it — it just serves the timeline.
+                // The recording is dropped once compiled.
+                let timeline = {
+                    let tl = hotlap_core::compile_timeline(&fetched.recording);
+                    serde_json::to_string(&tl).ok().map(Arc::<str>::from)
+                };
                 let mut inner = self.inner.lock().await;
-                inner.replay = Some(handle);
                 inner.name = Some(fetched.name);
                 inner.events = events;
+                inner.timeline = timeline;
                 inner.loading = false;
             }
             Err(e) => {
@@ -170,6 +180,7 @@ impl Hub {
             inner.stop_sources();
             inner.name = None;
             inner.events.clear();
+            inner.timeline = None;
         }
         self.engine.reset_state(Default::default());
 

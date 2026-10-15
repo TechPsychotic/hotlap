@@ -2,7 +2,7 @@ import { useState } from "react";
 import TopBar from "./components/TopBar";
 import WindowManager from "./components/WindowManager";
 import Landing from "./components/Landing";
-import { useStore } from "./store";
+import { useStore, stopLocalTimeline } from "./store";
 
 export default function App() {
   const [entered, setEntered] = useState(false);
@@ -14,6 +14,7 @@ export default function App() {
     <div className="app">
       <TopBar
         onHome={() => {
+          stopLocalTimeline();
           setLive(false);
           setEntered(false);
         }}
