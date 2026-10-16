@@ -17,6 +17,30 @@ use crate::{Error, Result};
 
 const STATIC_BASE: &str = "https://livetiming.formula1.com/static/";
 const UA: &str = "hotlap-historical";
+/// F1's live-timing archive host (the part that is geo-gated).
+const ARCHIVE_HOST: &str = "livetiming.formula1.com";
+
+/// Build the HTTP client used for archive requests. F1 geo-gates the static
+/// archive (a 401 from a CloudFront edge function for blocked regions). When
+/// `HOTLAP_ARCHIVE_PROXY` is set (http/https/socks5 URL, optionally with
+/// credentials), archive-host requests are routed through that proxy so a server
+/// in a blocked region can still reach the archive. Only the archive host is
+/// proxied — everything else (Ergast, Monterosa, …) stays direct.
+fn archive_client() -> Result<reqwest::Client> {
+    let mut b = reqwest::Client::builder().user_agent(UA);
+    if let Some(raw) = std::env::var("HOTLAP_ARCHIVE_PROXY").ok().filter(|s| !s.trim().is_empty()) {
+        match reqwest::Url::parse(raw.trim()) {
+            Ok(url) => {
+                let proxy = reqwest::Proxy::custom(move |req| {
+                    (req.host_str() == Some(ARCHIVE_HOST)).then(|| url.clone())
+                });
+                b = b.proxy(proxy);
+            }
+            Err(e) => tracing::warn!(error = %e, "ignoring invalid HOTLAP_ARCHIVE_PROXY"),
+        }
+    }
+    Ok(b.build()?)
+}
 
 /// Topics fetched as `.jsonStream` (in addition to the single `SessionInfo.json`).
 const STREAM_TOPICS: &[&str] = &[
@@ -79,7 +103,7 @@ pub struct Fetched {
 
 /// Download and assemble a historical session into a [`Recording`].
 pub async fn fetch(year: i32, gp: &str, session: &str, opts: &FetchOptions) -> Result<Fetched> {
-    let client = reqwest::Client::builder().user_agent(UA).build()?;
+    let client = archive_client()?;
     let cache = opts.cache_dir.as_deref();
 
     let index_txt = get_text(&client, &format!("{STATIC_BASE}{year}/Index.json"), cache).await?;
@@ -190,7 +214,7 @@ pub struct EventInfo {
 
 /// List the events and sessions in a season, for a picker UI.
 pub async fn index(year: i32, cache_dir: Option<&Path>) -> Result<Vec<EventInfo>> {
-    let client = reqwest::Client::builder().user_agent(UA).build()?;
+    let client = archive_client()?;
     let txt = get_text(
         &client,
         &format!("{STATIC_BASE}{year}/Index.json"),
