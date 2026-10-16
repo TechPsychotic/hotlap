@@ -21,23 +21,18 @@ const UA: &str = "hotlap-historical";
 const ARCHIVE_HOST: &str = "livetiming.formula1.com";
 
 /// Build the HTTP client used for archive requests. F1 geo-gates the static
-/// archive (a 401 from a CloudFront edge function for blocked regions). When
-/// `HOTLAP_ARCHIVE_PROXY` is set (http/https/socks5 URL, optionally with
-/// credentials), archive-host requests are routed through that proxy so a server
-/// in a blocked region can still reach the archive. Only the archive host is
-/// proxied — everything else (Ergast, Monterosa, …) stays direct.
-fn archive_client() -> Result<reqwest::Client> {
+/// archive (a 401 from a CloudFront edge function for blocked regions). The
+/// route is resolved by [`crate::proxy::resolve_archive`] — a manual
+/// `HOTLAP_ARCHIVE_PROXY`, else a direct connection, else an auto-discovered
+/// working free proxy. Only the archive host is routed through a proxy;
+/// everything else (Ergast, Monterosa, …) stays direct.
+async fn archive_client() -> Result<reqwest::Client> {
     let mut b = reqwest::Client::builder().user_agent(UA);
-    if let Some(raw) = std::env::var("HOTLAP_ARCHIVE_PROXY").ok().filter(|s| !s.trim().is_empty()) {
-        match reqwest::Url::parse(raw.trim()) {
-            Ok(url) => {
-                let proxy = reqwest::Proxy::custom(move |req| {
-                    (req.host_str() == Some(ARCHIVE_HOST)).then(|| url.clone())
-                });
-                b = b.proxy(proxy);
-            }
-            Err(e) => tracing::warn!(error = %e, "ignoring invalid HOTLAP_ARCHIVE_PROXY"),
-        }
+    if let Some(url) = crate::proxy::resolve_archive().await {
+        let proxy = reqwest::Proxy::custom(move |req| {
+            (req.host_str() == Some(ARCHIVE_HOST)).then(|| url.clone())
+        });
+        b = b.proxy(proxy);
     }
     Ok(b.build()?)
 }
@@ -103,7 +98,7 @@ pub struct Fetched {
 
 /// Download and assemble a historical session into a [`Recording`].
 pub async fn fetch(year: i32, gp: &str, session: &str, opts: &FetchOptions) -> Result<Fetched> {
-    let client = archive_client()?;
+    let client = archive_client().await?;
     let cache = opts.cache_dir.as_deref();
 
     let index_txt = get_text(&client, &format!("{STATIC_BASE}{year}/Index.json"), cache).await?;
@@ -214,7 +209,7 @@ pub struct EventInfo {
 
 /// List the events and sessions in a season, for a picker UI.
 pub async fn index(year: i32, cache_dir: Option<&Path>) -> Result<Vec<EventInfo>> {
-    let client = archive_client()?;
+    let client = archive_client().await?;
     let txt = get_text(
         &client,
         &format!("{STATIC_BASE}{year}/Index.json"),

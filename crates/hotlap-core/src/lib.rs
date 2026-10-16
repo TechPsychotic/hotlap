@@ -13,6 +13,7 @@ pub mod fallback;
 pub mod historical;
 pub mod merge;
 pub mod parser;
+pub mod proxy;
 pub mod recording;
 pub mod replay;
 pub mod timeline;
