@@ -173,7 +173,8 @@ a Rust field rename surfaces as a TypeScript error rather than a silent mismatch
 | Data | Source | Notes |
 |------|--------|-------|
 | Live timing/telemetry | `livetiming.formula1.com` SignalR | 2025+ returns **401** without an authenticated F1 TV cookie; handled gracefully (`--auth` / `$HOTLAP_F1_COOKIE`). |
-| Historical sessions | `livetiming.formula1.com/static/<year>/<path>/<Topic>.jsonStream` + season `Index.json` | Same format as live; **public, no login**. Cached under the OS cache dir. |
+| Historical sessions | `livetiming.formula1.com/static/<year>/<path>/<Topic>.jsonStream` + season `Index.json` | Same format as live. Was public; since ~Oct 2026 F1 **geo-gates** it at the CloudFront edge (a `401` from blocked regions, `x-cache: FunctionGeneratedResponse` — not rate limiting). Reached via an optional/auto-discovered proxy (`HOTLAP_ARCHIVE_PROXY`, archive host only); the `Index.json` is TTL-cached with a last-good fallback. Session files cached under the OS cache dir. See §10. |
+| Basic replay fallback | Jolpica/Ergast `…/{year}/{round}/results` + `…/laps` | When the archive is unreachable, a user prompt can build a basic timeline (positions, lap times, gaps) — no telemetry/map/sectors/weather/race-control. Paced + retried (public API throttles). |
 | Live-blog commentary | Monterosa (F1's provider since 2024): `ContentStreams.json` → commentary URI → `/events/{id[:2]}/{id}/history.json` | Time-synced to the playhead by anchoring post epochs to a feed `Utc`+offset pair. Pre-2024 used the now-defunct ScribbleLive. |
 | Circuit outlines | `bacinger/f1-circuits` GeoJSON (40 circuits) | Bundled at `web/public/circuits.geojson`; matched to a session by circuit/country/meeting name (stopword-filtered). |
 | Circuit **elevation** | Open-Meteo elevation API (Open-Elevation fallback) | Fetched once and **baked** into the GeoJSON as `[lng, lat, elevation]`; drives the 3D topography view. |
@@ -254,3 +255,28 @@ conditions, race control, and keyboard transport (play/pause/seek/speed/focus).
 - **Schema guard:** regenerate TS from the schema; a drift fails the build.
 - **Shared code path:** a recording replays identically to how it rendered live —
   a cheap, strong correctness check.
+
+---
+
+## 10. Known issues & limitations
+
+- **Historical archive geo-gate (since ~Oct 2026).** F1 put a CloudFront
+  edge-function gate on `…/static/`; blocked regions get an immediate `401`
+  (`x-cache: FunctionGeneratedResponse`) regardless of headers/User-Agent. It is
+  **not** rate limiting (that is `429`) — it is region/IP-based, began only after
+  the gate was deployed, and affects every static-archive reader (FastF1
+  included). The live `/signalrcore` feed is unaffected. Mitigations, most
+  reliable first: **(1)** a trusted proxy via `HOTLAP_ARCHIVE_PROXY`
+  (http/https/socks5, allowed region, archive host only); **(2)** auto-discovery
+  that fetches a public free-proxy list and tests candidates against the archive
+  in parallel (`HOTLAP_NO_AUTO_PROXY=1` to disable) — but F1 also WAF-blocks
+  datacenter IPs (`403`), so free lists (mostly datacenter) rarely succeed and a
+  residential/paid proxy is usually required; **(3)** a prompted Ergast basic
+  replay. Cached sessions still load fully.
+- **Timeline size.** A full race compiles to a ~50 MB client-side timeline
+  (car/position thinned 2×). Consider HTTP compression for remote hosting.
+- **Backward seek** re-folds the client timeline from lap 1 (no keyframes yet).
+- **Live car telemetry/positions** need an F1 TV cookie (2025+).
+- **Observed, uncharacterized:** an idle open browser tab has occasionally issued
+  stray session loads (visible in the server log, no user action) — cause not yet
+  pinned down; a hard refresh clears it.

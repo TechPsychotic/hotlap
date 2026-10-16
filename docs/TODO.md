@@ -3,6 +3,21 @@
 Feature requests captured 2026-10-07. Grouped by area, with data sources, likely
 code locations, approach, and open questions so it can be executed directly.
 
+## Known issues (as of 2026-10-17)
+
+- [ ] **F1 historical archive is geo-gated** (new ~Oct 2026). A CloudFront edge
+  function returns `401` for `…/static/` from blocked regions (not rate limiting
+  — that's `429`; this is region/IP-based and began only after the gate was
+  deployed). Live `/signalrcore` is fine; cached sessions load fully. Mitigated
+  by: `HOTLAP_ARCHIVE_PROXY` (manual, reliable), auto proxy-discovery (free
+  proxies rarely beat F1's extra datacenter-IP WAF `403`), and a prompted Ergast
+  basic replay. *Open: is the gate permanent (→ needs an authed-archive path) or
+  a geo rollout that lifts?*
+- [ ] **Timeline size** — a race compiles to ~50 MB; add keyframes (faster
+  backward seek) and/or HTTP compression for remote hosting.
+- [ ] **Phantom loads** — an idle browser tab has issued stray session loads
+  (server log, no user action); root-cause and fix.
+
 ## Requested (2026-10-08, round 6) — done
 
 - [x] **Telemetry graph** reverted to the smooth, time-based trace (restored the

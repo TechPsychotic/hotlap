@@ -17,11 +17,11 @@ full technical reference and [`TODO.md`](TODO.md) for the roadmap.
 | | |
 |---|---|
 | Rust crates | **6** |
-| Lines of code | **~7.6k** (~4.3k Rust, ~3.3k TS/TSX) |
+| Lines of code | **~10.1k** (~5.5k Rust, ~4.7k TS/TSX) |
 | Front-ends | **2** (web dashboard + terminal UI) |
-| Dashboard panels | **10** |
+| Dashboard panels | **11** |
 | Circuits with baked elevation | **40** |
-| Commits | **33** |
+| Commits | **56** |
 
 ---
 
@@ -90,13 +90,19 @@ A few of the problems that needed real engineering rather than a library call.
   samples (~5 Hz). Folding one message into one state step would collapse traces
   to ~1 Hz, so each message is split into one frame per entry, timed by its own
   `Utc` — restoring full-resolution traces.
-- **Near-instant seek.** Rebuilding state to an arbitrary point would re-inflate
-  thousands of `.z` frames. Seek applies every non-telemetry message up to the
-  target but only the *latest* CarData/Position before it (earlier ones are
-  overwritten anyway) — so scrubs are ~instant.
 - **Delta protocol.** The engine diffs each state change as an RFC 7386
   merge-patch and broadcasts it. New clients get a snapshot, then patches —
   keeping the wire small under high-rate car data.
+- **Client-side replay.** For historical sessions the server pre-compiles the
+  whole recording into one ordered patch *timeline*; the web downloads it once and
+  folds it on its own clock. Replay is independent per tab, seeking rebuilds full
+  per-lap history locally (a backward seek re-folds from lap 1), and the server
+  does no per-seek work. Live mode and the TUI/CLI keep the server-driven
+  snapshot-then-seek path.
+- **Archive resilience.** The geo-gated static archive is reached via an optional
+  / auto-discovered proxy (archive host only); when it can't be reached, the user
+  is offered an Ergast-reconstructed basic replay. The season index is cached with
+  a TTL and a last-good fallback.
 - **No schema drift.** Types live once in `hotlap-schema`; `schemars` → JSON
   Schema → generated `types.gen.ts`. A Rust field rename surfaces as a
   TypeScript error, not a silent mismatch.
@@ -107,27 +113,32 @@ A few of the problems that needed real engineering rather than a library call.
 
 ---
 
-## 4. Web dashboard — ten panels, one window manager
+## 4. Web dashboard — eleven panels, one window manager
 
 Floating, resizable, overlapping windows with a taskbar and a persistent layout
 — fed by a single WebSocket into a zustand store, in a liquid-glass UI.
 
-- **Track Details** — the real circuit in 2D (geolocation outline) and
-  interactive 3D (three.js, built from topography), each with the start/finish
-  line and live yellow / double-yellow zone highlights; weather and race control
-  inline.
-- **Telemetry** — full-resolution speed / throttle / brake for a lap, with
-  comparison against a driver's best, the session fastest, a specific lap, or
-  another driver.
 - **Timing Tower** — order, gaps and intervals, sector &amp; mini-sector strips,
-  tyres, and a live running sector delta vs the session benchmark.
-- **Strategy &amp; Team Radio** — tyre stints per driver; radio clips played
-  inline from F1's static host.
+  tyres (new/used), best lap (session-fastest in purple), a live running sector
+  delta vs the session benchmark, and places gained/lost versus the grid.
+- **Track Clock** — a MultiViewer-style "Circle of Doom": drivers arranged around
+  a ring by relative on-track position (the leader sweeping, the field spread by
+  real time gaps), retired cars dropped, labels de-cluttered.
+- **Telemetry** — full-resolution speed / throttle / brake for a single driver's
+  current lap, with live speed / gear / rpm / DRS and pedal meters.
+- **Driver Comparison** — overlay several drivers' laps (a driver's best, the
+  session fastest, a specific lap, or another driver), aligned to seconds-into-lap.
+- **Track Details** — the real circuit in 2D (geolocation outline, chosen by true
+  location rather than the GP name) and interactive 3D (three.js, built from
+  topography), each with the start/finish line and live yellow / double-yellow
+  zone highlights; weather and race control inline.
+- **Race Chart &amp; Strategy** — position by lap; tyre stints per driver.
+- **Team Radio** — radio clips played inline from F1's static host.
 - **Commentary** — F1's real live-blog (via Monterosa), time-synced to the
   playhead so posts reveal as the replay reaches them.
-- **Weather**, **Prediction**, and the **Landing page** (F1-themed home with
-  mouse parallax, the next-race countdown in the viewer's local time zone, and
-  the full season calendar).
+- **Weather**, **Prediction**, and the **Landing page** (F1-themed home with a
+  roaming "breathing" orb, the next-race countdown in the viewer's local time
+  zone, the full season calendar, and Live / Replay entry points).
 
 ---
 
@@ -137,14 +148,18 @@ Floating, resizable, overlapping windows with a taskbar and a persistent layout
 |------|--------|--------|
 | Live timing | livetiming.formula1.com — SignalR Core (`/signalrcore`) | Public |
 | Live car telemetry + positions | same feed, `CarData.z` / `Position.z` | F1 TV token (2025+) |
-| Historical sessions | Static `.jsonStream` archive + season Index | Public, cached |
+| Historical sessions | Static `.jsonStream` archive + season Index | **Geo-gated** (Oct 2026); cached locally |
+| Basic replay fallback | Jolpica / Ergast per-lap results | Public |
 | Live-blog commentary | Monterosa (F1's provider since 2024) | Public |
 | Circuit outlines | bacinger/f1-circuits GeoJSON (bundled) | Offline |
 | Circuit elevation | Open-Meteo / Open-Elevation (baked in) | Offline |
 | Race calendar | Jolpica / Ergast — via server proxy | Public |
 
 Live timing is public via the `/signalrcore` endpoint; only live car telemetry +
-positions need an F1 TV token. Recorded and historical positions are public — so the maps and telemetry work fully offline on any past race.
+positions need an F1 TV token. The historical **static archive** was public but,
+since ~Oct 2026, F1 geo-gates it at the CloudFront edge (a 401 from blocked
+regions) — Hotlap reaches it via an optional proxy, or degrades to the Ergast
+basic replay (see §8). Sessions already cached replay fully offline.
 
 ---
 
@@ -185,24 +200,56 @@ against real sessions.
 
 ---
 
-## 8. Status &amp; roadmap
+## 8. Known issues &amp; limitations
+
+- **F1's historical archive is geo-gated (since ~Oct 2026).** F1 added a
+  CloudFront **edge-function access gate** on `livetiming.formula1.com/static/`:
+  requests from blocked regions get an immediate **`401 Unauthorized`**
+  (`x-cache: FunctionGeneratedResponse`), regardless of User-Agent or headers.
+  This is **not rate limiting** (that is `429`) — it is region/IP-based, it hit us
+  only after the gate was deployed (a same-URL fetch succeeded days earlier), and
+  it affects **every** tool reading the static archive (FastF1 included). The
+  **live** feed (`/signalrcore`) is unaffected. Hotlap mitigates it three ways,
+  most-reliable first:
+  1. **A trusted proxy** via `HOTLAP_ARCHIVE_PROXY` (http/https/socks5, allowed
+     region) — only the archive host is proxied.
+  2. **Automatic proxy discovery** — fetches a public free-proxy list and tests
+     candidates against the archive in parallel, caching the first that connects
+     (`HOTLAP_NO_AUTO_PROXY=1` to disable). *Free proxies rarely succeed:* F1 also
+     **WAF-blocks datacenter IPs** (a `403`), and free lists are almost all
+     datacenter, so a residential/paid proxy is usually needed.
+  3. **Ergast/Jolpica basic replay** — offered via a user prompt: positions, lap
+     times and gaps, but **no telemetry, map, sectors, weather or race control**.
+  Cached sessions still load fully; the season index is TTL-cached with a
+  last-good fallback so the calendar survives outages.
+- **Large race timelines.** A full race compiles to a ~50 MB client-side timeline
+  (car/position thinned 2×); fine locally, enable HTTP compression for remote
+  hosting.
+- **Backward seek** re-folds the timeline from lap 1 (no keyframes yet) — a brief
+  synchronous pass on a long race.
+- **Live car telemetry/positions** still need an F1 TV cookie (2025+).
+
+## 9. Status &amp; roadmap
 
 **Working today**
 
-- Replay &amp; historical on any public past session.
-- Both front-ends against one engine.
-- 2D/3D maps, telemetry compare, commentary.
-- Landing page + season calendar.
+- **Live mode** from the web (Live button, track-local clock, elapsed/remaining).
+- **Per-tab client-side replay**: the server compiles a session to a patch
+  timeline the browser folds on its own clock — independent per tab, instant
+  seek rebuilding full history, no per-seek server load.
+- Replay / historical on any cached public session; geo-gate mitigations above.
+- Both front-ends against one engine; 2D/3D maps, Track Clock, telemetry +
+  comparison, race chart, commentary; landing page + full weekend calendar.
 
 **Next**
 
-- Landing entry points: Live (greyed out when no live session) + Historical.
-- Calendar: every weekend session (FP1/2/3, Sprint Quali, Sprint, Quali, Race),
-  with the countdown targeting the next session.
+- Reduce timeline size (keyframes for backward seek; optional HTTP compression).
+- Investigate whether the archive gate is permanent (vs. geo rollout) and, if so,
+  an authenticated-archive path.
 
 **Later**
 
-- F1 TV auth for the live feed; reconnect/backoff.
+- F1 TV auth for the live car channels; reconnect/backoff.
 - Saveable named layouts; packaging (binaries, Docker).
 
 ---

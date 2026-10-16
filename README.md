@@ -14,8 +14,10 @@ Live and historical data all flow through **one pipeline**, so a session
 you record replays through the exact same code that rendered it live.
 
 Live timing is public; only live **car telemetry + positions** need an F1 TV login
-(2025+). **Recorded and historical sessions are fully public** — so everything
-below works offline on any past race.
+(2025+). Historical sessions come from F1's static archive, which is **cached
+locally** (so anything you've loaded replays offline) but, as of ~Oct 2026, is
+**geo-gated** at F1's edge — see [Known issues](#known-issues) for the proxy and
+basic-replay fallbacks that keep historical loading working.
 
 > Deep dive: **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** · Report:
 > **[`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md)** · Roadmap:
@@ -31,23 +33,38 @@ Jolpica/Ergast).
 public historical archive all flow through the same parser → state → broadcast
 path. Record a live session and it replays through the exact code that rendered it.
 
-**Replay transport** — play / pause / **near-instant seek** / variable speed, with
+**Live & historical entry** — a **Live session** button (enabled only when a
+session is actually on air) connects the live feed and shows a **track-local
+clock** + **elapsed/remaining** timers; **Replay session** loads any past
+session. Historical replay is **per-tab and client-side**: the server compiles
+the session into a patch timeline the browser downloads once and folds on its
+own clock, so one viewer's play/pause/seek doesn't affect anyone else, seeking
+rebuilds full history locally, and scrubbing does no per-seek server work.
+
+**Replay transport** — play / pause / **instant seek** / variable speed, with
 **timeline markers** for session start, flags, SC/VSC, red, and finish. Seeking
-repopulates every panel to that moment.
+repopulates every panel — including the per-lap telemetry history — to that moment.
 
 **Web dashboard** (window manager — move / resize / overlap / minimize; layout
 persists):
 
-- **Timing Tower** — order, gaps, sectors + mini-sector strips, tyres, live sector delta.
-- **Telemetry** — full-resolution speed/throttle/brake for a lap, with **lap
-  comparison** (a driver's best, the session fastest, a specific lap, or another
-  driver).
+- **Timing Tower** — order, gaps, sectors + mini-sector strips, tyres (new/used),
+  best lap (session-fastest in purple), live sector delta, and places gained/lost
+  vs the grid.
+- **Track Clock** — a MultiViewer-style "Circle of Doom": drivers placed around a
+  ring by relative on-track position (leader sweeping, field spread by real
+  gaps), retired cars dropped, labels de-cluttered.
+- **Telemetry** — full-resolution speed/throttle/brake for a single driver's
+  current lap, with live speed/gear/rpm/DRS and pedal meters.
+- **Driver Comparison** — overlay several drivers' laps (a driver's best, the
+  session fastest, a specific lap, or another driver), aligned to seconds-into-lap.
 - **Track Details** — the **real circuit map** in **2D** (geolocation outline) and
   **interactive 3D** (three.js, built from circuit **topography/elevation**, with
   orbit / zoom / pan), each showing the **start/finish line** and **yellow /
   double-yellow zone highlights**; plus weather and the race-control log, inline.
-- **Strategy** (tyre stints), **Team Radio** (inline audio), **Weather**,
-  **Commentary** (F1's real live-blog, time-synced to the playhead), **Prediction**.
+- **Race Chart** (position by lap), **Strategy** (tyre stints), **Team Radio**
+  (inline audio), **Weather**, **Commentary** (F1's real live-blog, time-synced to
+  the playhead), **Prediction**.
 
 **Liquid-glass UI** — translucent, blurred, iOS-style panels and chrome over a
 themed background.
@@ -150,7 +167,9 @@ flags, weather, race control, driver list — is public and needs no login.** Th
 premium topics **`CarData.z` and `Position.z`** (car telemetry + positions) still
 require a valid F1 TV session cookie since the 2025 Dutch GP — pass it with
 `--auth "<cookie>"` or `$HOTLAP_F1_COOKIE` to get those too. There must be a live
-session on. The **static archive** used for `replay`/historical is fully public.
+session on. The **static archive** used for `replay`/historical was public but is
+now **geo-gated** at F1's edge (see [Known issues](#known-issues)); the live feed
+above is unaffected.
 
 ### Web dev loop
 
@@ -197,22 +216,64 @@ driver · `q` quit.
 hotlap/
   crates/
     hotlap-schema/   # shared types → JSON Schema → TS
-    hotlap-core/     # parser, engine, replay, recorder, historical, commentary, events, expand
+    hotlap-core/     # parser, engine, replay, timeline, recorder, historical, fallback, proxy, commentary, events, expand
     hotlap-signalr/  # F1 Live Timing SignalR client
     hotlap-server/   # axum WS + REST; serves web/dist; runtime session Hub
     hotlap-tui/       # ratatui dashboard
     hotlap-cli/       # the `hotlap` binary (serve/live/replay/historical/tui)
   web/
     src/
-      store.ts          # one WS → zustand store + derived state
+      store.ts          # WS live source + client-side local timeline player + derived state
       components/        # TopBar, WindowManager, SessionPicker, TransportBar, Landing
-      panels/            # TimingTower, Telemetry, TrackDetails, Track3D, Strategy, Radio, Weather, Commentary, Prediction
+      panels/            # TimingTower, TrackClock, Telemetry, DriverComparison, TrackDetails, Track3D, RaceChart, Strategy, Radio, Weather, Commentary, Prediction
       circuits.ts        # circuit GeoJSON load/match/projection
       types.gen.ts       # generated from the Rust schema
     public/circuits.geojson   # 40 circuits, with baked elevation
   fixtures/             # checked-in sample sessions for offline dev/tests
   docs/                 # ARCHITECTURE.md, TODO.md
 ```
+
+## Known issues
+
+### F1's historical archive is geo-gated (since ~Oct 2026)
+**Symptom:** loading a past session that isn't already cached fails to fetch
+telemetry; the picker shows an **"F1 archive unavailable"** prompt.
+
+**Cause:** F1 added a **CloudFront edge-function access gate** on
+`livetiming.formula1.com/static/`. Requests from blocked regions get an immediate
+**`401 Unauthorized`** (`x-cache: FunctionGeneratedResponse`), *regardless of
+User-Agent or headers* — so no request tweak bypasses it. This is **not rate
+limiting** (that would be `429`); it's **region/IP-based**. The **live** feed
+(`/signalrcore`) is unaffected, and this is an F1-side change that hits every tool
+reading the static archive (FastF1 included), not a Hotlap bug.
+
+**What Hotlap does about it**, most-reliable first:
+1. **A trusted proxy you supply** — set **`HOTLAP_ARCHIVE_PROXY`** to an
+   `http`/`https`/`socks5` URL (optionally `user:pass@host`) in an allowed region.
+   Only the archive host is routed through it; everything else stays direct.
+2. **Automatic proxy discovery** — when the archive is blocked, the server fetches
+   a public free-proxy list and tests candidates against the archive in parallel,
+   using the first that connects (cached, re-probed). Disable with
+   **`HOTLAP_NO_AUTO_PROXY=1`**. *Note:* free proxies rarely work here — F1 also
+   WAF-blocks datacenter IP ranges (a `403`), and free lists are almost all
+   datacenter IPs, so a **residential/paid** proxy is usually required.
+3. **Ergast/Jolpica basic replay** — offered via the popup as a last resort: a
+   results-based replay (positions, lap times, gaps) with **no telemetry, track
+   map, sectors, weather or race control**. Covers 2024+, race sessions best.
+
+**Already-cached sessions still load fully** (immutable session files are served
+from disk). The season index is cached with a 15-min TTL and falls back to the
+last-good copy, so the calendar keeps working through an outage.
+
+### Other notes
+- **Large race timelines.** A full race compiles to a ~50 MB client-side timeline
+  (car/position streams are thinned 2×). Fine for local/LAN; enable HTTP
+  compression for remote hosting. First (uncached) loads are download-bound.
+- **Backward seek** re-folds the timeline from lap 1 to rebuild full history — a
+  brief synchronous pass on a long race (no keyframe optimization yet).
+- **Live telemetry/positions** need `HOTLAP_F1_COOKIE` (F1 TV, 2025+); without it,
+  live mode omits car telemetry and track position (timing/flags/weather/radio/
+  commentary still work).
 
 ## Data source & legal
 
