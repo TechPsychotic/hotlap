@@ -44,6 +44,10 @@ struct Inner {
     /// Pre-serialized client-side replay timeline for the loaded session (web
     /// clients fold this locally). `None` for live sources.
     timeline: Option<Arc<str>>,
+    /// Set when the live-timing archive couldn't be reached (even via proxies)
+    /// and a basic Ergast replay is available instead — the web then asks the
+    /// user whether to load it rather than silently downgrading.
+    fallback_available: bool,
 }
 
 impl Inner {
@@ -61,10 +65,14 @@ impl Inner {
 
 /// What the picker polls while a session loads.
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LoadStatus {
     pub loading: bool,
     pub name: Option<String>,
     pub error: Option<String>,
+    /// The archive was unreachable but a basic Ergast replay can be loaded if the
+    /// user opts in (re-request the load with `fallback: true`).
+    pub fallback_available: bool,
 }
 
 impl Hub {
@@ -117,11 +125,17 @@ impl Hub {
             loading: inner.loading,
             name: inner.name.clone(),
             error: inner.error.clone(),
+            fallback_available: inner.fallback_available,
         }
     }
 
     /// Fetch a historical session and make it the current one. Aborts any
     /// running replay and resets the engine so clients resync.
+    ///
+    /// `use_fallback` selects the source: `false` loads the F1 live-timing
+    /// archive (full telemetry) and, if it can't be reached, stops and sets
+    /// `fallback_available` so the web can *ask* the user before downgrading.
+    /// `true` is the user's confirmation — load the basic Ergast replay directly.
     pub async fn load_historical(
         self: Arc<Self>,
         year: i32,
@@ -129,6 +143,7 @@ impl Hub {
         session: String,
         car_stride: usize,
         pos_stride: usize,
+        use_fallback: bool,
     ) {
         {
             let mut inner = self.inner.lock().await;
@@ -138,9 +153,37 @@ impl Hub {
             inner.name = None;
             inner.events.clear();
             inner.timeline = None;
+            inner.fallback_available = false;
         }
         self.engine.reset_state(Default::default());
 
+        // User confirmed the downgrade: load the basic Ergast replay directly.
+        if use_fallback {
+            let built = match hotlap_core::fallback::fetch(year, &event).await {
+                Ok(fb) => serde_json::to_string(&fb.timeline)
+                    .ok()
+                    .map(|json| (fb.name, Arc::<str>::from(json))),
+                Err(e) => {
+                    tracing::warn!(error = %e, "fallback source failed");
+                    None
+                }
+            };
+            let mut inner = self.inner.lock().await;
+            inner.loading = false;
+            match built {
+                Some((name, timeline)) => {
+                    inner.name = Some(name);
+                    inner.timeline = Some(timeline);
+                }
+                None => inner.error = Some("No fallback data is available for this session.".into()),
+            }
+            return;
+        }
+
+        // Primary source: the F1 live-timing archive (full telemetry, via the
+        // proxy resolver). A failure, or a "success" with no actual data (the
+        // archive can 401 every stream while still naming the session), means the
+        // archive is unreachable — offer the fallback rather than loading it.
         let opts = historical::FetchOptions {
             start_ms: 0,
             end_ms: None,
@@ -148,39 +191,22 @@ impl Hub {
             pos_stride: pos_stride.max(1),
             cache_dir: self.cache_dir.clone(),
         };
-        // Primary source: the F1 live-timing archive (full telemetry). A 401/
-        // network failure, or a "success" with no actual data (the archive can
-        // 401 every stream while still naming the session), both fall through to
-        // the Ergast/Jolpica fallback below.
         let primary = historical::fetch(year, &event, &session, &opts).await;
-        let primary = match primary {
-            Ok(f) if !f.recording.messages.is_empty() => Some(f),
+        let built = match primary {
+            Ok(f) if !f.recording.messages.is_empty() => {
+                let events = compute_events(&f.recording);
+                let tl = hotlap_core::compile_timeline(&f.recording);
+                serde_json::to_string(&tl)
+                    .ok()
+                    .map(|json| (f.name, Arc::<str>::from(json), events))
+            }
             Ok(_) => {
-                tracing::warn!("live-timing archive returned no data; trying fallback");
+                tracing::warn!("live-timing archive returned no data");
                 None
             }
             Err(e) => {
-                tracing::warn!(error = %e, "live-timing archive load failed; trying fallback");
+                tracing::warn!(error = %e, "live-timing archive load failed");
                 None
-            }
-        };
-
-        let built = if let Some(fetched) = primary {
-            let events = compute_events(&fetched.recording);
-            let tl = hotlap_core::compile_timeline(&fetched.recording);
-            serde_json::to_string(&tl)
-                .ok()
-                .map(|json| (fetched.name, Arc::<str>::from(json), events))
-        } else {
-            // Fallback: a basic race (positions, lap times, gaps) from Ergast.
-            match hotlap_core::fallback::fetch(year, &event).await {
-                Ok(fb) => serde_json::to_string(&fb.timeline)
-                    .ok()
-                    .map(|json| (fb.name, Arc::<str>::from(json), Vec::new())),
-                Err(e) => {
-                    tracing::warn!(error = %e, "fallback source also failed");
-                    None
-                }
             }
         };
 
@@ -192,13 +218,9 @@ impl Hub {
                 inner.events = events;
                 inner.timeline = Some(timeline);
             }
-            None => {
-                inner.error = Some(
-                    "This session isn't available from the F1 archive right now, and the \
-                     fallback source has no data for it."
-                        .into(),
-                );
-            }
+            // Archive unreachable: don't downgrade silently — tell the web a
+            // basic replay is available so it can prompt the user.
+            None => inner.fallback_available = true,
         }
     }
 
@@ -214,6 +236,7 @@ impl Hub {
             inner.name = None;
             inner.events.clear();
             inner.timeline = None;
+            inner.fallback_available = false;
         }
         self.engine.reset_state(Default::default());
 

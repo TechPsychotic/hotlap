@@ -198,6 +198,11 @@ struct LoadRequest {
     car_stride: Option<usize>,
     #[serde(default)]
     pos_stride: Option<usize>,
+    /// The user has confirmed loading the basic Ergast replay (after the archive
+    /// was found unreachable). Without it, an unreachable archive just sets
+    /// `fallbackAvailable` so the web can prompt.
+    #[serde(default)]
+    fallback: bool,
 }
 
 async fn load_handler(State(state): State<AppState>, Json(req): Json<LoadRequest>) -> StatusCode {
@@ -208,6 +213,7 @@ async fn load_handler(State(state): State<AppState>, Json(req): Json<LoadRequest
         req.session,
         req.car_stride.unwrap_or(1),
         req.pos_stride.unwrap_or(1),
+        req.fallback,
     ));
     StatusCode::ACCEPTED
 }

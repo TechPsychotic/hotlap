@@ -116,6 +116,12 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
   const [index, setIndex] = useState<IndexEvent[] | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  // Set when the archive is unreachable and we're asking whether to load the
+  // basic Ergast replay instead.
+  const [fallbackAsk, setFallbackAsk] = useState<{
+    names: { event: string; session: string };
+    label: string;
+  } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const orbRef = useRef<HTMLDivElement | null>(null);
 
@@ -175,28 +181,29 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
     }
   };
 
-  // Click a past session → load it from the archive, then enter the workspace.
-  const loadSession = async (race: Race, sess: Sess) => {
-    const names = archiveNames(index, race.raceName, sess.label);
-    if (!names) {
-      setLoadErr(`${race.short} · ${sess.label} isn't in the archive yet.`);
-      return;
-    }
+  // Run a load (archive first; `fallback` = user opted into basic Ergast data)
+  // and enter the workspace, or surface the archive-unreachable prompt.
+  const runLoad = async (
+    names: { event: string; session: string },
+    label: string,
+    fallback: boolean,
+  ) => {
     setLoadErr(null);
-    setLoading(`${race.short} · ${sess.label}`);
+    setFallbackAsk(null);
+    setLoading(fallback ? `${label} · basic` : label);
     setLiveMode(false);
     try {
       const res = await fetch("/api/session/load", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        // Thin out the high-rate car/position streams: it keeps the downloaded
-        // timeline (and the local fold on seek) light without hurting the traces.
+        // Thin out the high-rate car/position streams to keep the timeline light.
         body: JSON.stringify({
           year,
           event: names.event,
           session: names.session,
           car_stride: 2,
           pos_stride: 2,
+          fallback,
         }),
       });
       if (!res.ok) throw new Error("load");
@@ -208,9 +215,14 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
           setLoading(null);
           return;
         }
+        if (!st.loading && st.fallbackAvailable) {
+          // Archive unreachable (geo-blocked, no working proxy). Ask the user
+          // before downgrading to the basic results-based replay.
+          setLoading(null);
+          setFallbackAsk({ names, label });
+          return;
+        }
         if (!st.loading && st.name) {
-          // Switch to the per-tab local timeline player (falls back to the
-          // shared WebSocket source if no timeline is available).
           await startLocalTimeline();
           onEnter();
           return;
@@ -222,6 +234,16 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
       setLoadErr("Could not load that session.");
       setLoading(null);
     }
+  };
+
+  // Click a past session → load it from the archive, then enter the workspace.
+  const loadSession = (race: Race, sess: Sess) => {
+    const names = archiveNames(index, race.raceName, sess.label);
+    if (!names) {
+      setLoadErr(`${race.short} · ${sess.label} isn't in the archive yet.`);
+      return;
+    }
+    runLoad(names, `${race.short} · ${sess.label}`, false);
   };
 
   useEffect(() => {
@@ -435,6 +457,30 @@ export default function Landing({ onEnter }: { onEnter: () => void }) {
             <div className="lx-spin" />
             <div className="lx-loading-t">Loading {loading}</div>
             <div className="lx-loading-s dim">Fetching &amp; parsing the session…</div>
+          </div>
+        </div>
+      )}
+      {fallbackAsk && (
+        <div className="lx-loading" onClick={() => setFallbackAsk(null)}>
+          <div className="lx-loading-card lx-ask glass" onClick={(e) => e.stopPropagation()}>
+            <div className="lx-loading-t">F1 archive unavailable</div>
+            <div className="lx-ask-body dim">
+              <b>{fallbackAsk.label}</b> couldn&apos;t be loaded from F1&apos;s live-timing
+              archive — it&apos;s geo-blocked here and no working proxy was found. You can load a{" "}
+              <b>basic replay</b> from the results API instead (positions, lap times and gaps — but{" "}
+              <b>no telemetry, map or race control</b>).
+            </div>
+            <div className="lx-ask-row">
+              <button className="lx-ask-no" onClick={() => setFallbackAsk(null)}>
+                Cancel
+              </button>
+              <button
+                className="lx-ask-yes"
+                onClick={() => runLoad(fallbackAsk.names, fallbackAsk.label, true)}
+              >
+                Load basic replay
+              </button>
+            </div>
           </div>
         </div>
       )}

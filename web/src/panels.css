@@ -487,6 +487,15 @@ button, select, .cmp-chip, .cmp-add {
 .lx-loading-s { font-size: 12px; }
 .lx-spin { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--line-2); border-top-color: var(--accent); animation: lx-spin 0.8s linear infinite; }
 @keyframes lx-spin { to { transform: rotate(360deg); } }
+.lx-ask { max-width: 420px; padding: 24px 28px; gap: 14px; }
+.lx-ask-body { font-size: 13px; line-height: 1.5; text-align: left; }
+.lx-ask-body b { color: var(--fg); }
+.lx-ask-row { display: flex; gap: 10px; justify-content: flex-end; width: 100%; margin-top: 2px; }
+.lx-ask-row button { font-family: var(--sans); font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; border: 1px solid var(--line-2); }
+.lx-ask-no { background: transparent; color: var(--fg-dim); }
+.lx-ask-no:hover { color: var(--fg); border-color: var(--fg-dim); }
+.lx-ask-yes { background: var(--accent); color: #fff; border-color: var(--accent); }
+.lx-ask-yes:hover { filter: brightness(1.1); }
 .lx-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 50; padding: 11px 18px; border-radius: 12px; font-size: 13px; color: var(--fg); cursor: pointer; max-width: 90vw; }
 @media (prefers-reduced-motion: reduce) { .lx-spin { animation: none; } }
 
