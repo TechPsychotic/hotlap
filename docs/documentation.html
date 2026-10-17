@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hotlap Documentation</title>
+<meta name="description" content="Install, usage, commands, panels, environment variables and troubleshooting for Hotlap — F1 live & historical telemetry.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=Saira:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:#07090d; --bg-2:#0b0e14; --panel:#10141c; --panel-2:#0d1118;
+    --line:#1c2430; --line-2:#2a3444; --fg:#e9edf3; --fg-dim:#9aa6b6; --dim:#68727f;
+    --red:#e10600; --red-soft:#ff443d; --cyan:#41d6e0; --green:#30d47e; --yellow:#ffd23f;
+    --font-display:"Saira Condensed","Arial Narrow",sans-serif;
+    --font-head:"Saira",system-ui,sans-serif;
+    --font-body:"IBM Plex Sans",system-ui,sans-serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,monospace;
+    --maxw:1180px; --radius:14px;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0;
+    background:
+      radial-gradient(1100px 620px at 86% -10%, rgba(225,6,0,0.14), transparent 58%),
+      radial-gradient(900px 700px at -4% 104%, rgba(65,214,224,0.07), transparent 55%),
+      linear-gradient(170deg,var(--bg-2),var(--bg));
+    color:var(--fg); font-family:var(--font-body); font-size:15px; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  a { color:var(--cyan); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  h1,h2,h3 { font-family:var(--font-display); margin:0; line-height:1.05; text-wrap:balance; }
+  h2 { font-size:clamp(26px,4vw,38px); font-weight:800; letter-spacing:-0.4px; }
+  h3 { font-family:var(--font-head); font-weight:700; font-size:17px; margin:0 0 8px; }
+  p { margin:0 0 13px; color:var(--fg-dim); max-width:74ch; }
+  code { font-family:var(--font-mono); font-size:0.88em; color:var(--cyan); background:rgba(65,214,224,0.08); padding:1px 6px; border-radius:5px; }
+
+  /* layout: sticky sidebar TOC + content */
+  .shell { max-width:var(--maxw); margin:0 auto; display:grid; grid-template-columns:230px 1fr; gap:34px; padding:0 20px 60px; }
+  .side { position:sticky; top:0; align-self:start; height:100dvh; overflow-y:auto; padding:26px 0; }
+  .brand { display:flex; align-items:center; gap:10px; margin-bottom:22px; }
+  .mark { width:15px; height:22px; background:var(--red); clip-path:polygon(0 0,100% 0,100% 68%,50% 100%,0 68%); box-shadow:0 0 14px rgba(225,6,0,0.7); }
+  .brand b { font-family:var(--font-head); letter-spacing:3px; font-size:14px; }
+  .brand .d { font-family:var(--font-mono); font-size:10px; color:var(--dim); letter-spacing:1px; margin-left:auto; }
+  .toc { list-style:none; margin:0 0 20px; padding:0; border-left:1px solid var(--line); }
+  .toc a { display:block; color:var(--fg-dim); font-size:13.5px; padding:5px 0 5px 14px; margin-left:-1px; border-left:2px solid transparent; }
+  .toc a:hover { color:var(--fg); text-decoration:none; border-left-color:var(--line-2); }
+  .sidelinks { display:flex; flex-direction:column; gap:8px; }
+  .btn { display:inline-flex; align-items:center; gap:7px; font-family:var(--font-head); font-weight:600; font-size:13px; padding:8px 13px; border-radius:9px; border:1px solid var(--red); background:color-mix(in srgb,var(--red) 16%,transparent); color:var(--fg); }
+  .btn:hover { text-decoration:none; background:color-mix(in srgb,var(--red) 26%,transparent); }
+  .btn.ghost { border-color:var(--line-2); background:transparent; color:var(--fg-dim); }
+  .btn.ghost:hover { color:var(--fg); border-color:var(--fg-dim); }
+
+  .content { min-width:0; padding-top:26px; }
+  .content > header { padding:8px 0 30px; border-bottom:1px solid var(--line); margin-bottom:10px; }
+  .eyebrow { font-family:var(--font-head); font-weight:700; font-size:11.5px; letter-spacing:3px; text-transform:uppercase; color:var(--red-soft); display:flex; align-items:center; gap:10px; margin:0 0 12px; }
+  .eyebrow::before { content:""; width:24px; height:2px; background:var(--red); }
+  .content > header h1 { font-size:clamp(40px,8vw,72px); font-weight:800; letter-spacing:-1.5px; background:linear-gradient(180deg,#fff,#93a3b6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .content > header p { font-size:17px; color:var(--fg); margin-top:12px; }
+
+  section.doc { padding:30px 0; border-bottom:1px solid var(--line); scroll-margin-top:20px; }
+  section.doc:last-of-type { border-bottom:none; }
+  section.doc > h2 { margin-bottom:6px; }
+  .sub { color:var(--fg-dim); margin:0 0 18px; max-width:74ch; }
+
+  pre.code { background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:14px 16px; font-family:var(--font-mono); font-size:13px; color:var(--fg); overflow-x:auto; white-space:pre; line-height:1.75; margin:0 0 14px; }
+  pre.code .c { color:var(--dim); }
+  pre.code .k { color:var(--red-soft); }
+  pre.code .s { color:var(--cyan); }
+
+  .tablewrap { overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); margin-bottom:14px; }
+  table { border-collapse:collapse; width:100%; min-width:520px; font-size:13.5px; }
+  th,td { text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+  thead th { font-family:var(--font-head); font-weight:600; font-size:11.5px; letter-spacing:1px; text-transform:uppercase; color:var(--fg-dim); background:var(--panel-2); }
+  tbody tr:last-child td { border-bottom:none; }
+  td.k { font-family:var(--font-head); font-weight:600; color:var(--fg); white-space:nowrap; }
+  .mono { font-family:var(--font-mono); font-size:12.5px; color:var(--cyan); }
+
+  .grid { display:grid; gap:14px; }
+  .cols-2 { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; min-width:0; }
+  .card.warn { border-color:color-mix(in srgb,var(--red) 40%,var(--line)); }
+  .card p { font-size:13.5px; margin-bottom:0; }
+  .card .ico { font-family:var(--font-mono); font-size:10.5px; color:var(--red-soft); letter-spacing:1px; display:block; margin-bottom:6px; }
+
+  dl.keys { display:grid; grid-template-columns:auto 1fr; gap:8px 16px; margin:0; }
+  dl.keys dt { font-family:var(--font-mono); font-size:12.5px; color:var(--cyan); }
+  dl.keys dd { margin:0; color:var(--fg-dim); font-size:13.5px; }
+
+  .note { background:color-mix(in srgb,var(--red) 8%,var(--panel)); border:1px solid color-mix(in srgb,var(--red) 35%,var(--line)); border-radius:10px; padding:13px 16px; font-size:13.5px; color:var(--fg-dim); margin:0 0 14px; }
+  .note b { color:var(--fg); }
+
+  footer { color:var(--dim); font-size:13px; padding:26px 0 0; }
+  footer p { color:var(--dim); max-width:none; }
+
+  @media (max-width:820px) {
+    .shell { grid-template-columns:1fr; gap:0; }
+    .side { position:static; height:auto; overflow:visible; padding:22px 0 10px; }
+    .toc { display:none; }
+    .content { padding-top:8px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><b>HOTLAP</b><span class="d">DOCS</span></div>
+    <nav>
+      <ul class="toc">
+        <li><a href="#install">Install</a></li>
+        <li><a href="#commands">Commands</a></li>
+        <li><a href="#panels">Dashboard panels</a></li>
+        <li><a href="#tui">Terminal UI</a></li>
+        <li><a href="#env">Environment</a></li>
+        <li><a href="#data">Data &amp; access</a></li>
+        <li><a href="#issues">Known issues</a></li>
+        <li><a href="#dev">Development</a></li>
+        <li><a href="#layout">Project layout</a></li>
+      </ul>
+    </nav>
+    <div class="sidelinks">
+      <a class="btn" href="report.html">← Project report</a>
+      <a class="btn ghost" href="ARCHITECTURE.md">Architecture (md)</a>
+      <a class="btn ghost" href="../README.md">README</a>
+      <a class="btn ghost" href="TODO.md">Roadmap</a>
+    </div>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+    <header>
+      <p class="eyebrow">Documentation</p>
+      <h1>Hotlap</h1>
+      <p>F1 live &amp; historical telemetry, in your browser <strong>and</strong> your terminal.
+        One Rust core ingests F1's Live Timing feed — live, from a recording, or from any past
+        session — normalizes it, and serves two front-ends from a single binary.</p>
+    </header>
+
+    <!-- INSTALL -->
+    <section class="doc" id="install">
+      <p class="eyebrow">Get started</p>
+      <h2>Install &amp; run</h2>
+      <p class="sub">Prerequisites: <strong>Rust</strong> (stable toolchain) and <strong>Node&nbsp;18+</strong>.
+        The binary serves the REST API, the WebSocket, and the built web GUI.</p>
+      <pre class="code"><span class="c"># 1. build the web GUI once → web/dist (served by the core)</span>
+cd web &amp;&amp; <span class="k">npm</span> install &amp;&amp; <span class="k">npm</span> run build &amp;&amp; cd ..
+
+<span class="c"># 2. replay the bundled real session; opens the dashboard</span>
+<span class="k">cargo</span> run -p hotlap-cli -- replay <span class="s">fixtures/monaco-2023-quali/</span></pre>
+      <p>Open <a href="http://localhost:8080">http://localhost:8080</a>. The home page shows the
+        season calendar — click any past session to load and replay it — plus the next-session
+        countdown. Windows float, overlap, move and resize; the layout is remembered per browser.</p>
+      <h3 style="margin-top:20px">Docker</h3>
+      <pre class="code"><span class="k">docker</span> compose up --build        <span class="c"># → http://&lt;host-ip&gt;:8080 on your LAN</span>
+<span class="c"># or:</span>
+<span class="k">docker</span> run --rm -p 8080:8080 -v hotlap-cache:/root/.cache/hotlap hotlap</pre>
+    </section>
+
+    <!-- COMMANDS -->
+    <section class="doc" id="commands">
+      <p class="eyebrow">CLI</p>
+      <h2>Commands</h2>
+      <p class="sub">The <code>hotlap</code> binary has five subcommands. All server modes bind
+        <code>0.0.0.0:8080</code> by default (LAN-visible; it prints the LAN URL). Use
+        <code>--addr 127.0.0.1:8080</code> for local-only, or another port.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td class="k"><span class="mono">serve</span></td><td>Start empty; load any year / event / session from the web picker on demand. <span class="mono">[--addr] [--no-open]</span></td></tr>
+            <tr><td class="k"><span class="mono">replay &lt;dir&gt;</span></td><td>Replay a local recording or bundled fixture. <span class="mono">[--addr] [--speed N] [--no-open]</span></td></tr>
+            <tr><td class="k"><span class="mono">live</span></td><td>Serve both UIs off the live feed (when a session is on air). <span class="mono">[--record &lt;dir&gt;] [--auth &lt;cookie&gt;]</span></td></tr>
+            <tr><td class="k"><span class="mono">historical &lt;year&gt; &lt;event&gt; &lt;session&gt;</span></td><td>Download, cache and replay a past session. <span class="mono">[--car-stride N] [--pos-stride N] [--start-minutes N] [--max-minutes N]</span></td></tr>
+            <tr><td class="k"><span class="mono">tui --replay &lt;dir&gt;</span></td><td>Full ratatui terminal dashboard over the same engine — no browser.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre class="code"><span class="k">hotlap</span> serve                               <span class="c"># season calendar + picker</span>
+<span class="k">hotlap</span> live --record <span class="s">data/my-session</span>        <span class="c"># live + save for later replay</span>
+<span class="k">hotlap</span> historical <span class="s">2023 Silverstone Race</span>    <span class="c"># big race? --car-stride 3 --pos-stride 3</span>
+<span class="k">hotlap</span> tui --replay <span class="s">fixtures/monaco-2023-quali/</span></pre>
+    </section>
+
+    <!-- PANELS -->
+    <section class="doc" id="panels">
+      <p class="eyebrow">Web dashboard</p>
+      <h2>Dashboard panels</h2>
+      <p class="sub">Floating, resizable, overlapping windows with a taskbar and a persistent layout.
+        Historical replay is per-tab and client-side: the browser downloads a compiled timeline once
+        and folds it on its own clock, so seeking rebuilds full history locally.</p>
+      <div class="grid cols-2">
+        <div class="card"><span class="ico">TIMING</span><h3>Timing Tower</h3><p>Order, gaps/intervals, sector + mini-sector strips, tyres (new/used), best lap (session-fastest in purple), live sector delta, and places gained/lost vs the grid.</p></div>
+        <div class="card"><span class="ico">RING</span><h3>Track Clock</h3><p>A MultiViewer-style "Circle of Doom": drivers around a ring by relative on-track position (leader sweeping, field spread by real gaps); retired cars dropped.</p></div>
+        <div class="card"><span class="ico">GRAPH</span><h3>Telemetry</h3><p>Full-resolution speed / throttle / brake for one driver's current lap, with live speed / gear / rpm / DRS and pedal meters.</p></div>
+        <div class="card"><span class="ico">COMPARE</span><h3>Driver Comparison</h3><p>Overlay several drivers' laps (a driver's best, the session fastest, a specific lap, or another driver), aligned to seconds-into-lap.</p></div>
+        <div class="card"><span class="ico">MAP</span><h3>Track Details</h3><p>The real circuit in 2D (geolocation outline, chosen by true location not the GP name) and interactive 3D (three.js, from topography) — start/finish line, yellow-zone highlights, weather &amp; race control inline.</p></div>
+        <div class="card"><span class="ico">MORE</span><h3>Race Chart · Strategy · Radio · Weather · Commentary · Prediction</h3><p>Position by lap; tyre stints; inline team radio; weather; F1's real live-blog time-synced to the playhead; and a prediction panel.</p></div>
+      </div>
+    </section>
+
+    <!-- TUI -->
+    <section class="doc" id="tui">
+      <p class="eyebrow">Terminal UI</p>
+      <h2>Keyboard controls</h2>
+      <p class="sub">A full ratatui dashboard against the same engine: <code>hotlap tui --replay &lt;dir&gt;</code>.</p>
+      <dl class="keys">
+        <dt>space</dt><dd>play / pause</dd>
+        <dt>← / →</dt><dd>seek ∓10&nbsp;s</dd>
+        <dt>[ / ]</dt><dd>slower / faster</dd>
+        <dt>↑ / ↓</dt><dd>focus driver</dd>
+        <dt>q</dt><dd>quit</dd>
+      </dl>
+    </section>
+
+    <!-- ENV -->
+    <section class="doc" id="env">
+      <p class="eyebrow">Configuration</p>
+      <h2>Environment variables</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Variable</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td class="k"><span class="mono">HOTLAP_F1_COOKIE</span></td><td>F1 TV session cookie. Unlocks the gated live car telemetry + positions (<span class="mono">CarData.z</span> / <span class="mono">Position.z</span>, 2025+). Also settable with <code>--auth</code> on <code>live</code>.</td></tr>
+            <tr><td class="k"><span class="mono">HOTLAP_ARCHIVE_PROXY</span></td><td>An <span class="mono">http</span> / <span class="mono">https</span> / <span class="mono">socks5</span> URL (optionally <span class="mono">user:pass@host</span>) in an allowed region, used to reach the geo-gated historical archive. <strong>Only the archive host is proxied</strong>; everything else stays direct.</td></tr>
+            <tr><td class="k"><span class="mono">HOTLAP_NO_AUTO_PROXY</span></td><td>Set (to any non-empty value) to disable the automatic free-proxy discovery that runs when the archive is blocked.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">The historical download cache lives under your OS cache dir (e.g. <span class="mono">~/.cache/hotlap/historical</span>); re-runs of a cached session are fully offline.</p>
+    </section>
+
+    <!-- DATA -->
+    <section class="doc" id="data">
+      <p class="eyebrow">Data</p>
+      <h2>Data sources &amp; access</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Data</th><th>Source</th><th>Access</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Live timing</td><td>livetiming.formula1.com — SignalR Core (<span class="mono">/signalrcore</span>)</td><td>Public</td></tr>
+            <tr><td class="k">Live car telemetry + positions</td><td>same feed, <span class="mono">CarData.z</span> / <span class="mono">Position.z</span></td><td>F1 TV token (2025+)</td></tr>
+            <tr><td class="k">Historical sessions</td><td>Static <span class="mono">.jsonStream</span> archive + season Index</td><td><strong>Geo-gated</strong>; cached locally</td></tr>
+            <tr><td class="k">Basic replay fallback</td><td>Jolpica / Ergast per-lap results</td><td>Public</td></tr>
+            <tr><td class="k">Live-blog commentary</td><td>Monterosa (F1's provider since 2024)</td><td>Public</td></tr>
+            <tr><td class="k">Circuit outlines &amp; elevation</td><td>bacinger/f1-circuits + Open-Meteo/Open-Elevation (baked)</td><td>Offline</td></tr>
+            <tr><td class="k">Race calendar</td><td>Jolpica / Ergast (via server proxy)</td><td>Public</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- KNOWN ISSUES -->
+    <section class="doc" id="issues">
+      <p class="eyebrow">Troubleshooting</p>
+      <h2>Known issues</h2>
+      <div class="card warn" style="margin-bottom:14px">
+        <span class="ico">ARCHIVE · GEO-GATE</span>
+        <h3>"F1 archive unavailable" when loading a past session</h3>
+        <p>Since ~Oct&nbsp;2026, F1 geo-gates its historical archive
+          (<span class="mono">livetiming.formula1.com/static/</span>) with a CloudFront edge
+          function: blocked regions get an immediate <span class="mono">401</span>
+          (<span class="mono">x-cache: FunctionGeneratedResponse</span>), regardless of
+          User-Agent or headers. This is <b>not rate limiting</b> (that is
+          <span class="mono">429</span>) — it is region/IP-based and affects every tool reading
+          the static archive (FastF1 included). The <b>live</b> feed is unaffected, and
+          already-cached sessions still load fully.</p>
+      </div>
+      <p>What to do, most reliable first:</p>
+      <div class="grid cols-2">
+        <div class="card"><span class="ico">1 · RELIABLE</span><h3>Supply a proxy</h3><p>Set <span class="mono">HOTLAP_ARCHIVE_PROXY</span> to a trusted proxy in an allowed region. A residential/paid proxy is best.</p></div>
+        <div class="card"><span class="ico">2 · BEST-EFFORT</span><h3>Auto-discovery</h3><p>On by default: fetches a public free-proxy list and tests it against the archive. Free proxies rarely work — F1 also WAF-blocks datacenter IPs (<span class="mono">403</span>). Disable with <span class="mono">HOTLAP_NO_AUTO_PROXY</span>.</p></div>
+        <div class="card"><span class="ico">3 · FALLBACK</span><h3>Ergast basic replay</h3><p>Offered via a popup: positions, lap times and gaps from the results API — but <b>no telemetry, map, sectors, weather or race control</b>. Covers 2024+.</p></div>
+        <div class="card"><span class="ico">OTHER</span><h3>Notes</h3><p>A full race compiles to a ~50&nbsp;MB client-side timeline (fine locally). A backward seek re-folds from lap&nbsp;1. Live car channels need an F1&nbsp;TV cookie.</p></div>
+      </div>
+    </section>
+
+    <!-- DEV -->
+    <section class="doc" id="dev">
+      <p class="eyebrow">Development</p>
+      <h2>Web dev loop</h2>
+      <pre class="code"><span class="c"># terminal 1 — core serving the API + WebSocket</span>
+<span class="k">cargo</span> run -p hotlap-cli -- replay <span class="s">fixtures/monaco-2023-quali/</span> --no-open
+
+<span class="c"># terminal 2 — Vite dev server (HMR), proxies /api + /ws to the core</span>
+cd web &amp;&amp; <span class="k">npm</span> run dev        <span class="c"># http://127.0.0.1:5173</span></pre>
+      <p>TypeScript types are generated from the Rust schema so they can't drift:</p>
+      <pre class="code">cd web &amp;&amp; <span class="k">npm</span> run gen:types   <span class="c"># regenerates src/types.gen.ts</span></pre>
+    </section>
+
+    <!-- LAYOUT -->
+    <section class="doc" id="layout">
+      <p class="eyebrow">Reference</p>
+      <h2>Project layout</h2>
+      <pre class="code">crates/
+  hotlap-schema/   <span class="c"># shared types → JSON Schema → TS</span>
+  hotlap-core/     <span class="c"># parser, engine, replay, timeline, recorder,</span>
+                   <span class="c"># historical, fallback, proxy, commentary, events</span>
+  hotlap-signalr/  <span class="c"># F1 Live Timing SignalR client</span>
+  hotlap-server/   <span class="c"># axum WS + REST; serves web/dist; session Hub</span>
+  hotlap-tui/      <span class="c"># ratatui dashboard</span>
+  hotlap-cli/      <span class="c"># the `hotlap` binary</span>
+web/
+  src/store.ts     <span class="c"># WS live source + client-side timeline player</span>
+  src/panels/      <span class="c"># TimingTower, TrackClock, Telemetry, DriverComparison,</span>
+                   <span class="c"># TrackDetails, Track3D, RaceChart, Strategy, Radio, …</span>
+  public/circuits.geojson   <span class="c"># 40 circuits, baked elevation</span>
+fixtures/          <span class="c"># checked-in sample sessions for offline dev/tests</span>
+docs/              <span class="c"># report.html, documentation.html, ARCHITECTURE.md, TODO.md</span></pre>
+      <p>Deep technical reference: <a href="ARCHITECTURE.md">ARCHITECTURE.md</a> ·
+        roadmap &amp; known issues: <a href="TODO.md">TODO.md</a> ·
+        the designed report: <a href="report.html">report.html</a>.</p>
+    </section>
+
+    <footer>
+      <p><strong style="color:var(--fg-dim)">Hotlap</strong> is an unofficial, fan-made tool, not
+        associated with or endorsed by Formula 1 companies. "F1" and "Formula 1" are trademarks of
+        Formula One Licensing B.V. It reads the same publicly reachable feed as FastF1, f1-dash and
+        undercut-f1. Licensed MIT.</p>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

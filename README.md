@@ -19,9 +19,13 @@ locally** (so anything you've loaded replays offline) but, as of ~Oct 2026, is
 **geo-gated** at F1's edge — see [Known issues](#known-issues) for the proxy and
 basic-replay fallbacks that keep historical loading working.
 
-> Deep dive: **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** · Report:
-> **[`docs/PROJECT_REPORT.md`](docs/PROJECT_REPORT.md)** · Roadmap:
+> 📖 **[Documentation](docs/documentation.html)** (install · commands · panels ·
+> env · troubleshooting) · 📊 **[Project report](docs/report.html)** · Deep dive:
+> **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** · Roadmap:
 > **[`docs/TODO.md`](docs/TODO.md)**.
+>
+> *(The HTML docs are self-contained — open them locally, or serve `docs/` via
+> GitHub Pages.)*
 
 ## Features
 
