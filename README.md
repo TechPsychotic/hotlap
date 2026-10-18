@@ -70,8 +70,6 @@ persists):
   (inline audio), **Weather**, **Commentary** (F1's real live-blog, time-synced to
   the playhead), **Prediction**.
 
-**Liquid-glass UI** — translucent, blurred, iOS-style panels and chrome over a
-themed background.
 
 **Terminal UI** — the same engine in a keyboard-driven ratatui dashboard.
 
