@@ -55,7 +55,10 @@ fn store(route: Route) {
 /// auto-discovery of a working free proxy.
 pub async fn resolve_archive() -> Option<reqwest::Url> {
     // 1. Manual override always wins.
-    if let Some(raw) = std::env::var("HOTLAP_ARCHIVE_PROXY").ok().filter(|s| !s.trim().is_empty()) {
+    if let Some(raw) = std::env::var("HOTLAP_ARCHIVE_PROXY")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+    {
         return reqwest::Url::parse(raw.trim()).ok();
     }
     // 2. Opt out of auto-discovery.
@@ -98,9 +101,11 @@ fn direct_client() -> reqwest::Client {
 /// True if `url` fetched through `client` returns the archive (200 + JSON body).
 async fn probe(client: &reqwest::Client, url: &str) -> bool {
     match client.get(url).send().await {
-        Ok(r) if r.status().as_u16() == 200 => {
-            r.text().await.map(|t| t.contains("Meetings")).unwrap_or(false)
-        }
+        Ok(r) if r.status().as_u16() == 200 => r
+            .text()
+            .await
+            .map(|t| t.contains("Meetings"))
+            .unwrap_or(false),
         _ => false,
     }
 }
@@ -156,7 +161,12 @@ async fn fetch_list() -> Vec<reqwest::Url> {
         Ok(c) => c,
         Err(_) => return Vec::new(),
     };
-    let txt = match client.get(LIST_URL).send().await.and_then(|r| r.error_for_status()) {
+    let txt = match client
+        .get(LIST_URL)
+        .send()
+        .await
+        .and_then(|r| r.error_for_status())
+    {
         Ok(r) => r.text().await.unwrap_or_default(),
         Err(e) => {
             tracing::warn!(error = %e, "could not fetch proxy list");

@@ -77,7 +77,12 @@ fn fmt_gap(ms: f64) -> String {
 async fn get_json(client: &reqwest::Client, url: &str) -> Result<Value> {
     let mut delay = Duration::from_millis(600);
     for attempt in 0..4 {
-        match client.get(url).send().await.and_then(|r| r.error_for_status()) {
+        match client
+            .get(url)
+            .send()
+            .await
+            .and_then(|r| r.error_for_status())
+        {
             Ok(resp) => {
                 let txt = resp.text().await?;
                 return Ok(serde_json::from_str(&txt)?);
@@ -121,7 +126,9 @@ pub async fn fetch(year: i32, event: &str) -> Result<FallbackSession> {
     let round = race["round"].as_str().unwrap_or_default().to_string();
     let meeting_name = race["raceName"].as_str().unwrap_or(event).to_string();
     let circuit = race["Circuit"]["circuitName"].as_str().map(str::to_string);
-    let country = race["Circuit"]["Location"]["country"].as_str().map(str::to_string);
+    let country = race["Circuit"]["Location"]["country"]
+        .as_str()
+        .map(str::to_string);
 
     // 2. Driver list + a driverId → racing-number map, from the results.
     let results = get_json(&client, &format!("{ERGAST}/{year}/{round}/results.json")).await?;
@@ -140,7 +147,9 @@ pub async fn fetch(year: i32, event: &str) -> Result<FallbackSession> {
         }
         let did = d["driverId"].as_str().unwrap_or_default().to_string();
         id_to_num.insert(did, num.clone());
-        let cid = r["Constructor"]["constructorId"].as_str().unwrap_or_default();
+        let cid = r["Constructor"]["constructorId"]
+            .as_str()
+            .unwrap_or_default();
         drivers.insert(
             num.clone(),
             Driver {
@@ -189,13 +198,23 @@ pub async fn fetch(year: i32, event: &str) -> Result<FallbackSession> {
             .unwrap_or_default();
         let mut got = 0usize;
         for l in &page_laps {
-            let lap_no: u32 = l["number"].as_str().and_then(|n| n.parse().ok()).unwrap_or(0);
+            let lap_no: u32 = l["number"]
+                .as_str()
+                .and_then(|n| n.parse().ok())
+                .unwrap_or(0);
             for t in l["Timings"].as_array().into_iter().flatten() {
                 got += 1;
                 let did = t["driverId"].as_str().unwrap_or_default();
-                let Some(num) = id_to_num.get(did) else { continue };
-                let pos: u32 = t["position"].as_str().and_then(|p| p.parse().ok()).unwrap_or(0);
-                let Some(ms) = t["time"].as_str().and_then(lap_ms) else { continue };
+                let Some(num) = id_to_num.get(did) else {
+                    continue;
+                };
+                let pos: u32 = t["position"]
+                    .as_str()
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(0);
+                let Some(ms) = t["time"].as_str().and_then(lap_ms) else {
+                    continue;
+                };
                 laps.entry(lap_no).or_default().push((num.clone(), pos, ms));
             }
         }
@@ -226,7 +245,10 @@ pub async fn fetch(year: i32, event: &str) -> Result<FallbackSession> {
     let mut frames = Vec::new();
     // Initial frame at t=0: session + driver list visible before racing starts.
     let json0 = serde_json::to_value(&state)?;
-    frames.push(TimelineFrame { t: 0, patch: merge::diff(&prev, &json0) });
+    frames.push(TimelineFrame {
+        t: 0,
+        patch: merge::diff(&prev, &json0),
+    });
     prev = json0;
 
     let mut cum: BTreeMap<String, f64> = BTreeMap::new();
@@ -260,7 +282,10 @@ pub async fn fetch(year: i32, event: &str) -> Result<FallbackSession> {
             .filter(|(_, t)| t.position == Some(1))
             .map(|(n, _)| n.clone())
             .next();
-        let leader_cum = leader.as_ref().and_then(|n| cum.get(n).copied()).unwrap_or(0.0);
+        let leader_cum = leader
+            .as_ref()
+            .and_then(|n| cum.get(n).copied())
+            .unwrap_or(0.0);
         // Order the drivers currently classified by position.
         let mut order: Vec<(String, u32)> = state
             .timing
@@ -299,7 +324,10 @@ pub async fn fetch(year: i32, event: &str) -> Result<FallbackSession> {
         let json = serde_json::to_value(&state)?;
         let patch = merge::diff(&prev, &json);
         if !patch.is_null() {
-            frames.push(TimelineFrame { t: leader_cum as u64, patch });
+            frames.push(TimelineFrame {
+                t: leader_cum as u64,
+                patch,
+            });
             prev = json;
         }
     }
@@ -307,7 +335,10 @@ pub async fn fetch(year: i32, event: &str) -> Result<FallbackSession> {
     let duration_ms = frames.last().map(|f| f.t).unwrap_or(0);
     Ok(FallbackSession {
         name: format!("{meeting_name} — Race · basic (no telemetry)"),
-        timeline: Timeline { duration_ms, frames },
+        timeline: Timeline {
+            duration_ms,
+            frames,
+        },
     })
 }
 

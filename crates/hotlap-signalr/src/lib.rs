@@ -86,10 +86,14 @@ pub async fn run(sink: mpsc::Sender<RawMessage>, auth: Option<String>) -> Result
         .collect::<Vec<_>>()
         .join("; ");
 
-    let mut request = ws_url.into_client_request().context("building ws request")?;
+    let mut request = ws_url
+        .into_client_request()
+        .context("building ws request")?;
     request.headers_mut().insert(USER_AGENT, UA.parse()?);
     if !connect_cookie.is_empty() {
-        request.headers_mut().insert(COOKIE, connect_cookie.parse()?);
+        request
+            .headers_mut()
+            .insert(COOKIE, connect_cookie.parse()?);
     }
 
     tracing::info!("connecting to F1 live timing feed (signalrcore)…");
@@ -100,7 +104,9 @@ pub async fn run(sink: mpsc::Sender<RawMessage>, auth: Option<String>) -> Result
 
     // SignalR-Core handshake, then the Subscribe invocation.
     write
-        .send(Message::Text(format!("{{\"protocol\":\"json\",\"version\":1}}{RS}")))
+        .send(Message::Text(format!(
+            "{{\"protocol\":\"json\",\"version\":1}}{RS}"
+        )))
         .await?;
     let subscribe = serde_json::json!({
         "arguments": [TOPICS],
@@ -108,7 +114,9 @@ pub async fn run(sink: mpsc::Sender<RawMessage>, auth: Option<String>) -> Result
         "target": "Subscribe",
         "type": 1,
     });
-    write.send(Message::Text(format!("{subscribe}{RS}"))).await?;
+    write
+        .send(Message::Text(format!("{subscribe}{RS}")))
+        .await?;
     tracing::info!(topics = TOPICS.len(), "subscribed to live feed");
 
     let start = Instant::now();
@@ -153,12 +161,20 @@ pub async fn probe_live(auth: Option<String>) -> Result<Option<String>> {
     let mut url = reqwest::Url::parse(&format!("{BASE_URL}/signalrcore"))?;
     url.query_pairs_mut().append_pair("id", &token);
     let ws_url = url.to_string().replacen("https://", "wss://", 1);
-    let connect_cookie = [auth, cookie].into_iter().flatten().collect::<Vec<_>>().join("; ");
+    let connect_cookie = [auth, cookie]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("; ");
 
-    let mut request = ws_url.into_client_request().context("building ws request")?;
+    let mut request = ws_url
+        .into_client_request()
+        .context("building ws request")?;
     request.headers_mut().insert(USER_AGENT, UA.parse()?);
     if !connect_cookie.is_empty() {
-        request.headers_mut().insert(COOKIE, connect_cookie.parse()?);
+        request
+            .headers_mut()
+            .insert(COOKIE, connect_cookie.parse()?);
     }
     let (ws, _) = tokio_tungstenite::connect_async(request)
         .await
@@ -166,7 +182,9 @@ pub async fn probe_live(auth: Option<String>) -> Result<Option<String>> {
     let (mut write, mut read) = ws.split();
 
     write
-        .send(Message::Text(format!("{{\"protocol\":\"json\",\"version\":1}}{RS}")))
+        .send(Message::Text(format!(
+            "{{\"protocol\":\"json\",\"version\":1}}{RS}"
+        )))
         .await?;
     let sub = serde_json::json!({
         "arguments": [["Heartbeat", "SessionInfo", "SessionStatus"]],
@@ -213,7 +231,10 @@ pub async fn probe_live(auth: Option<String>) -> Result<Option<String>> {
                 }
             }
             if let Some(si) = pick("SessionInfo") {
-                let meeting = si.get("Meeting").and_then(|m| m.get("Name")).and_then(|n| n.as_str());
+                let meeting = si
+                    .get("Meeting")
+                    .and_then(|m| m.get("Name"))
+                    .and_then(|n| n.as_str());
                 let session = si.get("Name").and_then(|n| n.as_str());
                 name = Some(match (meeting, session) {
                     (Some(m), Some(s)) => format!("{m} — {s}"),
@@ -242,9 +263,18 @@ pub async fn probe_live(auth: Option<String>) -> Result<Option<String>> {
     let heartbeat_fresh = heartbeat
         .as_deref()
         .and_then(|u| chrono::DateTime::parse_from_rfc3339(u).ok())
-        .map(|t| chrono::Utc::now().signed_duration_since(t.with_timezone(&chrono::Utc)).num_seconds().abs() < 90)
+        .map(|t| {
+            chrono::Utc::now()
+                .signed_duration_since(t.with_timezone(&chrono::Utc))
+                .num_seconds()
+                .abs()
+                < 90
+        })
         .unwrap_or(false);
-    Ok((status_live || heartbeat_fresh).then(|| name.unwrap_or_else(|| "Live session".to_string())))
+    Ok(
+        (status_live || heartbeat_fresh)
+            .then(|| name.unwrap_or_else(|| "Live session".to_string())),
+    )
 }
 
 /// Negotiate: returns the connection token and any load-balancer cookie.

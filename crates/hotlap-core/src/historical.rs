@@ -271,7 +271,11 @@ pub async fn fetch_monterosa_posts(client: &reqwest::Client, uri: &str) -> Resul
     if event.len() < 2 {
         return Ok(Vec::new());
     }
-    let hist_url = format!("https://{host}/events/{}/{}/history.json", &event[..2], event);
+    let hist_url = format!(
+        "https://{host}/events/{}/{}/history.json",
+        &event[..2],
+        event
+    );
     let hist_txt = client.get(&hist_url).send().await?.text().await?;
     let hist: serde_json::Value = serde_json::from_str(strip_bom(&hist_txt))?;
 

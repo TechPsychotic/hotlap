@@ -21,6 +21,7 @@ use std::sync::Arc;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::http::{header, HeaderValue};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -29,7 +30,6 @@ use hotlap_core::historical;
 use hotlap_schema::{ClientMessage, ReplayControl, ServerMessage};
 use serde::Deserialize;
 use tokio::sync::broadcast::error::RecvError;
-use axum::http::{header, HeaderValue};
 use tower::ServiceBuilder;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
@@ -113,7 +113,10 @@ pub async fn serve(addr: SocketAddr, hub: Arc<Hub>) -> anyhow::Result<()> {
     if addr.ip().is_unspecified() {
         println!("  Hotlap:  http://localhost:{}", addr.port());
         if let Some(ip) = local_ip() {
-            println!("  LAN:     http://{ip}:{}  (open this on other devices)", addr.port());
+            println!(
+                "  LAN:     http://{ip}:{}  (open this on other devices)",
+                addr.port()
+            );
         }
     } else {
         println!("  Hotlap:  http://{addr}");
@@ -238,8 +241,14 @@ async fn live_available_handler() -> Json<LiveAvail> {
     let auth = std::env::var("HOTLAP_F1_COOKIE").ok();
     let probe = hotlap_signalr::probe_live(auth);
     match tokio::time::timeout(std::time::Duration::from_secs(8), probe).await {
-        Ok(Ok(Some(name))) => Json(LiveAvail { available: true, name: Some(name) }),
-        _ => Json(LiveAvail { available: false, name: None }),
+        Ok(Ok(Some(name))) => Json(LiveAvail {
+            available: true,
+            name: Some(name),
+        }),
+        _ => Json(LiveAvail {
+            available: false,
+            name: None,
+        }),
     }
 }
 

@@ -175,7 +175,9 @@ impl Hub {
                     inner.name = Some(name);
                     inner.timeline = Some(timeline);
                 }
-                None => inner.error = Some("No fallback data is available for this session.".into()),
+                None => {
+                    inner.error = Some("No fallback data is available for this session.".into())
+                }
             }
             return;
         }
