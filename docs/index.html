@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Hotlap</title>
+  <meta name="description" content="Hotlap — a local-first F1 live timing & telemetry app. Project report and documentation." />
+  <style>
+    :root {
+      --bg: #07090d;
+      --bg-2: #0b0e14;
+      --card: #0e121a;
+      --fg: #e9edf3;
+      --fg-dim: #9aa6b6;
+      --line: #1b2230;
+      --red: #e8002d;
+      --red-soft: #ff4d6a;
+      --cyan: #27f4d2;
+      --font-head: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      color-scheme: dark;
+      box-sizing: border-box;
+    }
+    *, *::before, *::after { box-sizing: inherit; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(170deg, var(--bg-2), var(--bg));
+      color: var(--fg);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      padding: env(safe-area-inset-top,0) 16px env(safe-area-inset-bottom,0);
+    }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 72px 0 64px; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--font-head); font-weight: 700; font-size: 12px;
+      letter-spacing: 3px; text-transform: uppercase; color: var(--red-soft);
+      margin: 0 0 18px;
+    }
+    .eyebrow::before { content: ""; width: 26px; height: 2px; background: var(--red); display: inline-block; }
+    h1 {
+      font-family: var(--font-head); font-weight: 800;
+      font-size: clamp(40px, 9vw, 68px); line-height: 1.02;
+      margin: 0 0 16px; letter-spacing: -1.5px;
+    }
+    h1 .dot { color: var(--red); }
+    .lede { font-size: clamp(16px, 2.6vw, 19px); color: var(--fg-dim); max-width: 60ch; margin: 0 0 40px; line-height: 1.55; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+    a.card {
+      display: block; text-decoration: none; color: inherit;
+      background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+      padding: 22px 22px 24px; transition: border-color .15s ease, transform .15s ease, background .15s ease;
+    }
+    a.card:hover { border-color: #2c3850; transform: translateY(-2px); background: #10151f; }
+    a.card .ic { font-size: 22px; }
+    a.card h3 { font-family: var(--font-head); font-size: 17px; margin: 12px 0 6px; }
+    a.card p { margin: 0; font-size: 13.5px; color: var(--fg-dim); line-height: 1.5; }
+    a.card .go { margin-top: 14px; font-size: 13px; color: var(--cyan); font-weight: 600; }
+    footer { margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line); font-size: 13px; color: var(--fg-dim); }
+    footer a { color: var(--cyan); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    .note { margin-top: 10px; font-size: 12.5px; color: #6b7687; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <p class="eyebrow">Local-first F1 telemetry</p>
+    <h1>Hotlap<span class="dot">.</span></h1>
+    <p class="lede">
+      A single Rust core ingests F1 live timing, recorded sessions and historical archives
+      through one pipeline, and serves a dockable web dashboard and a terminal UI — live and
+      replay share one code path.
+    </p>
+
+    <div class="cards">
+      <a class="card" href="report.html">
+        <div class="ic">📊</div>
+        <h3>Project report</h3>
+        <p>What it is, the architecture, the panels, metrics, and how to install &amp; run it.</p>
+        <div class="go">Read the report →</div>
+      </a>
+      <a class="card" href="documentation.html">
+        <div class="ic">📖</div>
+        <h3>Documentation</h3>
+        <p>Command reference, dashboard panels, terminal UI keys, environment, data &amp; access, known issues.</p>
+        <div class="go">Open the docs →</div>
+      </a>
+      <a class="card" href="https://github.com/TechPsychotic/hotlap">
+        <div class="ic">⧉</div>
+        <h3>Source on GitHub</h3>
+        <p>The full Cargo workspace, web client and terminal UI. Clone, build, and run locally.</p>
+        <div class="go">View repository →</div>
+      </a>
+    </div>
+
+    <footer>
+      Built with Rust + React. See the <a href="report.html">report</a> for the install &amp; run guide.
+      <p class="note">
+        This site hosts Hotlap's documentation. The live dashboard runs locally (<code>hotlap live</code> /
+        <code>hotlap serve</code>) because the F1 feed can't be reached directly from a static page — see the
+        documentation's “Data &amp; access” section for why.
+      </p>
+    </footer>
+  </main>
+</body>
+</html>
