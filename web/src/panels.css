@@ -573,7 +573,8 @@ button, select, .cmp-chip, .cmp-add {
 .tclock-sf { stroke: #fff; stroke-width: 3; }
 /* Pit-window projection for the focused car. */
 .tclock-pitwin { fill: none; stroke-width: 9; opacity: 0.4; stroke-linecap: round; }
-.tclock-pitout { stroke: #fff; stroke-width: 1.4; opacity: 0.9; }
+.tclock-pitout { stroke: #fff; stroke-width: 1.2; opacity: 0.9; }
+.tclock-pittag { font: 700 7.5px var(--mono); opacity: 0.85; }
 .tclock-sec { fill: var(--dim); font: 600 10px var(--mono); }
 .tclock-sf-l { fill: var(--fg-dim); font: 700 10px var(--mono); }
 .tclock-lap { fill: var(--fg); font: 800 34px var(--sans); }
