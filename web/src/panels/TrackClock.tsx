@@ -69,7 +69,8 @@ function buildLoop(path: XY[]): Loop | null {
     if (d > awayT) away = true;
     if (away && d < closeT && i > 40) { end = i; break; }
   }
-  const pts = end > 40 ? path.slice(0, end + 1) : path;
+  if (end <= 40) return null; // no full lap captured yet — wait before freezing
+  const pts = path.slice(0, end + 1);
   const segs: Loop["segs"] = [];
   let cum = 0;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -82,17 +83,27 @@ function buildLoop(path: XY[]): Loop | null {
   if (cum <= 0 || segs.length < 10) return null;
   return { segs, total: cum };
 }
-/** Fraction (0..1) around the lap of the point nearest (x,y) on the loop. */
-function projectFrac(loop: Loop, x: number, y: number): number {
-  let best = Infinity;
-  let bestFrac = 0;
+/** Fraction (0..1) around the lap of the point nearest (x,y) on the loop. When a
+ *  `hint` (the car's previous fraction) is given, a near-equidistant candidate
+ *  closer to the hint wins — so a car passing a spot where the track doubles
+ *  back on itself doesn't flip to the far side. */
+function projectFrac(loop: Loop, x: number, y: number, hint?: number): number {
+  let best = Infinity, bestFrac = 0;
+  let bestH = Infinity, bestHFrac = NaN;
   for (const s of loop.segs) {
     const t = s.len > 0 ? Math.max(0, Math.min(1, ((x - s.ax) * s.vx + (y - s.ay) * s.vy) / (s.len * s.len))) : 0;
     const px = s.ax + t * s.vx, py = s.ay + t * s.vy;
     const dx = x - px, dy = y - py;
     const d = dx * dx + dy * dy;
-    if (d < best) { best = d; bestFrac = (s.cum + t * s.len) / loop.total; }
+    const frac = (s.cum + t * s.len) / loop.total;
+    if (d < best) { best = d; bestFrac = frac; }
+    if (hint != null) {
+      let af = Math.abs(frac - hint);
+      af = Math.min(af, 1 - af);
+      if (af < 0.08 && d < bestH) { bestH = d; bestHFrac = frac; }
+    }
   }
+  if (hint != null && !Number.isNaN(bestHFrac) && bestH < best * 1.6) return bestHFrac;
   return bestFrac;
 }
 
@@ -142,7 +153,22 @@ export default function TrackClock() {
   const setFocus = useStore((s) => s.setFocus);
   const order = orderByPosition(state);
 
-  const loop = useMemo(() => buildLoop(trackPath), [trackPath]);
+  // Build the track loop ONCE, the first time a full lap has accumulated, then
+  // freeze it. Rebuilding as trackPath keeps growing would drift the arc-length
+  // mapping and rotate the whole field between frames. Drop it only when the
+  // path resets (a new session, so it gets shorter).
+  const loopRef = useRef<Loop | null>(null);
+  const loopLenRef = useRef(0);
+  const lastFracRef = useRef<Map<string, number>>(new Map());
+  const loop = useMemo(() => {
+    if (trackPath.length + 5 < loopLenRef.current) {
+      loopRef.current = null;
+      lastFracRef.current.clear();
+    }
+    loopLenRef.current = trackPath.length;
+    if (!loopRef.current) loopRef.current = buildLoop(trackPath); // null until a full lap exists
+    return loopRef.current;
+  }, [trackPath]);
 
   const model = useMemo(() => {
     const timing = state.timing ?? {};
@@ -201,7 +227,9 @@ export default function TrackClock() {
     };
     const lp = leader ? position[leader] : undefined;
     const leaderFrac = leader
-      ? (loop && lp && validPos(leader) ? projectFrac(loop, lp.x as number, lp.y as number) : miniFrac(leader))
+      ? (loop && lp && validPos(leader)
+          ? projectFrac(loop, lp.x as number, lp.y as number, lastFracRef.current.get(leader))
+          : miniFrac(leader))
       : 0;
 
     let anyProgress = leaderFrac > 0;
@@ -209,7 +237,8 @@ export default function TrackClock() {
       let frac: number;
       const p = position[n];
       if (loop && p && validPos(n)) {
-        frac = projectFrac(loop, p.x as number, p.y as number); // accurate, smooth
+        frac = projectFrac(loop, p.x as number, p.y as number, lastFracRef.current.get(n)); // accurate, smooth
+        lastFracRef.current.set(n, frac);
       } else {
         // Fallback: leader at its mini-sector position, others behind by gap.
         const g = gap(n);
