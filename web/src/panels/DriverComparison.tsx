@@ -15,6 +15,7 @@ import {
   getLapList,
   getBestLap,
   getFastestLap,
+  telemetryAvailable,
   type LapTrace,
 } from "../store";
 
@@ -213,6 +214,17 @@ export default function DriverComparison() {
           Car telemetry needed for a comparison is gated behind F1&nbsp;TV in live mode.
           <br />
           Set <code>HOTLAP_F1_COOKIE</code> on the server to enable it, or watch a replay.
+        </div>
+      </div>
+    );
+  }
+
+  if (order.length > 0 && !telemetryAvailable(state)) {
+    return (
+      <div className="panel tel">
+        <div className="empty tel-gated">
+          Driver comparison needs car telemetry, which isn’t available for this session
+          (the data source carries no CarData).
         </div>
       </div>
     );

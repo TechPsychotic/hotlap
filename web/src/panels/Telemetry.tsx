@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import uPlot from "uplot";
-import { useStore, orderByPosition, getCurrentLap } from "../store";
+import { useStore, orderByPosition, getCurrentLap, telemetryAvailable } from "../store";
 
 const DRS_ON = new Set([8, 10, 12, 14]);
 const C_SPEED = "#4aa8ff";
@@ -100,6 +100,19 @@ export default function Telemetry() {
           Live car telemetry (speed / throttle / brake) is gated behind F1&nbsp;TV.
           <br />
           Set <code>HOTLAP_F1_COOKIE</code> on the server to enable it, or watch a replay.
+        </div>
+      </div>
+    );
+  }
+
+  // No CarData in this session (e.g. an Ergast "basic" replay) — say so plainly
+  // instead of rendering an empty chart.
+  if (order.length > 0 && !telemetryAvailable(state)) {
+    return (
+      <div className="panel tel">
+        <div className="empty tel-gated">
+          Car telemetry isn’t available for this session — the data source carries no
+          CarData (speed / throttle / brake). Timing, gaps and strategy still work.
         </div>
       </div>
     );

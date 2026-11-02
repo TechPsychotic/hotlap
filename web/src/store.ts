@@ -672,3 +672,15 @@ export function orderByPosition(state: SessionState): string[] {
 export function teamColour(hex?: string | null): string {
   return hex ? `#${hex}` : "var(--dim)";
 }
+
+/** Whether this session carries car telemetry (CarData). F1-TV-gated live
+ *  sessions and Ergast "basic" replays have none, so telemetry panels mark
+ *  themselves unavailable rather than showing an empty chart. */
+export function telemetryAvailable(state: SessionState): boolean {
+  const car = state.car ?? {};
+  for (const k in car) {
+    const c = car[k] as { speed?: number | null; throttle?: number | null; rpm?: number | null } | undefined;
+    if (c && (c.speed != null || c.throttle != null || c.rpm != null)) return true;
+  }
+  return false;
+}
