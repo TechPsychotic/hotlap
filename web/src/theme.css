@@ -119,6 +119,14 @@ button, select {
   transition: border-color 0.12s, background 0.12s;
 }
 button:hover, select:hover { border-color: var(--accent-soft); }
+/* Native select popups follow color-scheme; give the options a solid dark
+   background so the OS-rendered dropdown list stays readable (otherwise it can
+   render light with near-white text). */
+select { color-scheme: dark; }
+select option, select optgroup {
+  background: #0e121a;
+  color: var(--fg);
+}
 button:active { transform: translateY(0.5px); }
 button.ghost { background: transparent; border-color: transparent; }
 button.ghost:hover { background: var(--panel-2); border-color: var(--line); }
