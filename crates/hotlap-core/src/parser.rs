@@ -314,7 +314,7 @@ fn apply_position(state: &mut SessionState, p: &Value, offset_ms: u64) {
 
 fn apply_race_control(state: &mut SessionState, p: &Value) {
     for (_, m) in indexed(&p["Messages"]) {
-        state.race_control.push(RaceControlMessage {
+        let msg = RaceControlMessage {
             utc: coerce::str(&m["Utc"]),
             lap: coerce::u32(&m["Lap"]),
             category: coerce::str(&m["Category"]),
@@ -323,7 +323,13 @@ fn apply_race_control(state: &mut SessionState, p: &Value) {
             scope: coerce::str(&m["Scope"]),
             sector: coerce::u32(&m["Sector"]),
             racing_number: coerce::str(&m["RacingNumber"]),
-        });
+        };
+        // The feed re-sends the initial snapshot on reconnect and can repeat
+        // indices across deltas; these logs are append-only, so skip exact
+        // duplicates to keep the list clean.
+        if !state.race_control.contains(&msg) {
+            state.race_control.push(msg);
+        }
     }
 }
 
@@ -333,21 +339,28 @@ fn apply_commentary(state: &mut SessionState, p: &Value) {
     let title = coerce::str(&p["Title"]);
     let message = coerce::str(&p["Text"]);
     if title.is_some() || message.is_some() {
-        state.commentary.push(CommentaryMsg {
+        let msg = CommentaryMsg {
             utc: coerce::str(&p["Utc"]),
             title,
             message,
-        });
+        };
+        if !state.commentary.contains(&msg) {
+            state.commentary.push(msg);
+        }
     }
 }
 
 fn apply_team_radio(state: &mut SessionState, p: &Value) {
     for (_, c) in indexed(&p["Captures"]) {
-        state.team_radio.push(TeamRadioClip {
+        let clip = TeamRadioClip {
             utc: coerce::str(&c["Utc"]),
             racing_number: coerce::str(&c["RacingNumber"]),
             path: coerce::str(&c["Path"]),
-        });
+        };
+        // Each clip has a unique path; skip repeats from snapshot re-sends.
+        if !state.team_radio.contains(&clip) {
+            state.team_radio.push(clip);
+        }
     }
 }
 
@@ -686,5 +699,28 @@ mod tests {
         .unwrap();
         assert_eq!(s.race_control.len(), 1);
         assert_eq!(s.race_control[0].flag.as_deref(), Some("GREEN"));
+    }
+
+    #[test]
+    fn append_only_logs_dedupe_resends() {
+        let mut s = SessionState::default();
+        let rc = raw(
+            "RaceControlMessages",
+            0,
+            json!({"Messages": {"1": {"Utc": "2023-05-28T13:00:00Z", "Message": "GREEN", "Flag": "GREEN"}}}),
+        );
+        let tr = raw(
+            "TeamRadio",
+            0,
+            json!({"Captures": {"0": {"Utc": "2023-05-28T13:01:00Z", "RacingNumber": "44", "Path": "a.mp3"}}}),
+        );
+        // Apply each twice, as happens when the feed re-sends its snapshot on
+        // reconnect. The append-only logs must not duplicate.
+        for _ in 0..2 {
+            apply(&mut s, &rc).unwrap();
+            apply(&mut s, &tr).unwrap();
+        }
+        assert_eq!(s.race_control.len(), 1, "race control deduped");
+        assert_eq!(s.team_radio.len(), 1, "team radio deduped");
     }
 }

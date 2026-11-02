@@ -105,7 +105,7 @@ pub struct AudioStream {
     pub uri: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CommentaryMsg {
     pub utc: Option<String>,
@@ -297,7 +297,7 @@ pub struct Position {
     pub offset_ms: Option<u64>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RaceControlMessage {
     pub utc: Option<String>,
@@ -310,7 +310,7 @@ pub struct RaceControlMessage {
     pub racing_number: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TeamRadioClip {
     pub utc: Option<String>,

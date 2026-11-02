@@ -65,6 +65,12 @@ export default function TimingTower() {
   const sectorDeltas = useStore((s) => s.sectorDeltas);
   const order = orderByPosition(state);
 
+  // In a race the Δ (sector-delta) column is replaced by pit-stop count, and a
+  // current-stint-laps column is added — strategy matters there, not a single
+  // flying lap. Qualifying/practice keep the sector delta.
+  const sessionType = state.session?.sessionType ?? state.session?.sessionName ?? "";
+  const isRace = /race|sprint/i.test(sessionType);
+
   // Best-lap times drive a quali-style "gap to pole" when the feed doesn't send
   // race gaps (it doesn't in qualifying).
   const bestMs: Record<string, number | null> = {};
@@ -94,7 +100,14 @@ export default function TimingTower() {
               <th>S3</th>
               <th>Last</th>
               <th>Best</th>
-              <th>Δ</th>
+              {isRace ? (
+                <>
+                  <th className="r" title="Pit stops">Pit</th>
+                  <th className="r" title="Laps on current tyre set (this stint)">Stint</th>
+                </>
+              ) : (
+                <th>Δ</th>
+              )}
               <th className="c">Tyre</th>
               <th className="r">Lap</th>
             </tr>
@@ -114,6 +127,17 @@ export default function TimingTower() {
               const posChg =
                 grid != null && t.position != null ? grid - t.position : 0;
               const sectors = t.sectors ?? [];
+
+              // Race-only strategy figures. Pit stops: the feed's count, or one
+              // per stint after the first. Current-stint laps: laps run on the
+              // current set this stint (tyre age minus any pre-stint laps).
+              const pitStops = t.numberOfPitStops ?? Math.max(0, stints.length - 1);
+              const cur = stints[stints.length - 1];
+              const stintLaps =
+                cur != null
+                  ? Math.max(0, (cur.totalLaps ?? cur.laps ?? 0) - (cur.startLaps ?? 0)) ||
+                    (cur.totalLaps ?? cur.laps ?? 0)
+                  : null;
 
               // Gap / interval: prefer the feed's values; fall back to best-lap deltas.
               const my = bestMs[num];
@@ -155,19 +179,26 @@ export default function TimingTower() {
                   <td className={`tnum ${num === fastestNum ? "ob" : lapClass(t.bestLapTime)}`}>
                     {t.bestLapTime?.value ?? ""}
                   </td>
-                  <td className="sd">
-                    {(() => {
-                      const sd = sectorDeltas[num];
-                      if (!sd) return null;
-                      const cls = sd.deltaMs <= 0 ? "pb" : sd.deltaMs < 300 ? "yellow" : "lose";
-                      return (
-                        <span className="tnum">
-                          <span className="sd-tag">{SECTOR_TAG[sd.sector]}</span>
-                          <span className={cls}>{fmtSigned(sd.deltaMs)}</span>
-                        </span>
-                      );
-                    })()}
-                  </td>
+                  {isRace ? (
+                    <>
+                      <td className="r tnum muted">{pitStops}</td>
+                      <td className="r tnum">{stintLaps != null ? `L${stintLaps}` : ""}</td>
+                    </>
+                  ) : (
+                    <td className="sd">
+                      {(() => {
+                        const sd = sectorDeltas[num];
+                        if (!sd) return null;
+                        const cls = sd.deltaMs <= 0 ? "pb" : sd.deltaMs < 300 ? "yellow" : "lose";
+                        return (
+                          <span className="tnum">
+                            <span className="sd-tag">{SECTOR_TAG[sd.sector]}</span>
+                            <span className={cls}>{fmtSigned(sd.deltaMs)}</span>
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  )}
                   <td className="c">
                     {tyre ? (
                       <span
