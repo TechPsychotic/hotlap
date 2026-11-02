@@ -566,11 +566,14 @@ button, select, .cmp-chip, .cmp-add {
 .comm-audio-el { width: 100%; height: 30px; }
 
 /* ===================== Track Clock panel ===================== */
-.tclock { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; }
+.tclock { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2px; }
 .tclock-svg { width: 100%; height: 100%; max-width: 100%; display: block; }
-.tclock-ring { fill: none; stroke-width: 2.5; opacity: 0.5; }
-.tclock-tick { stroke: var(--line-2); stroke-width: 2; }
-.tclock-sf { stroke: #fff; stroke-width: 2.5; }
+.tclock-ring { fill: none; stroke-width: 7; opacity: 0.72; }
+.tclock-tick { stroke: var(--line-2); stroke-width: 2.5; }
+.tclock-sf { stroke: #fff; stroke-width: 3; }
+/* Pit-window projection for the focused car. */
+.tclock-pitwin { fill: none; stroke-width: 9; opacity: 0.4; stroke-linecap: round; }
+.tclock-pitout { stroke: #fff; stroke-width: 1.4; opacity: 0.9; }
 .tclock-sec { fill: var(--dim); font: 600 10px var(--mono); }
 .tclock-sf-l { fill: var(--fg-dim); font: 700 10px var(--mono); }
 .tclock-lap { fill: var(--fg); font: 800 34px var(--sans); }
