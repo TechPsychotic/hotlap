@@ -157,9 +157,22 @@ impl Hub {
         }
         self.engine.reset_state(Default::default());
 
-        // User confirmed the downgrade: load the basic Ergast replay directly.
+        // User confirmed the downgrade: load a fallback replay directly. OpenF1
+        // (2023+) is far richer — telemetry, positions, sectors, weather — so try
+        // it first and fall back to the basic Ergast timing-only reconstruction.
         if use_fallback {
-            let built = match hotlap_core::fallback::fetch(year, &event).await {
+            let fb = if year >= 2023 {
+                match hotlap_core::openf1::fetch(year, &event).await {
+                    Ok(fb) => Ok(fb),
+                    Err(e) => {
+                        tracing::warn!(error = %e, "OpenF1 fallback failed; trying Ergast");
+                        hotlap_core::fallback::fetch(year, &event).await
+                    }
+                }
+            } else {
+                hotlap_core::fallback::fetch(year, &event).await
+            };
+            let built = match fb {
                 Ok(fb) => serde_json::to_string(&fb.timeline)
                     .ok()
                     .map(|json| (fb.name, Arc::<str>::from(json))),

@@ -12,6 +12,7 @@ pub mod expand;
 pub mod fallback;
 pub mod historical;
 pub mod merge;
+pub mod openf1;
 pub mod parser;
 pub mod proxy;
 pub mod recording;
