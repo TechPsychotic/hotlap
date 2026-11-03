@@ -575,6 +575,24 @@ button, select, .cmp-chip, .cmp-add {
 .tclock-pitwin { fill: none; stroke-width: 9; opacity: 0.4; stroke-linecap: round; }
 .tclock-pitout { stroke: #fff; stroke-width: 1.2; opacity: 0.9; }
 .tclock-pittag { font: 700 7.5px var(--mono); opacity: 0.85; }
+
+/* Ratings panel */
+.rt { display: flex; flex-direction: column; }
+.rt-tabs { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.rt-tabs button { font-size: 11px; padding: 3px 10px; opacity: 0.6; }
+.rt-tabs button.on { opacity: 1; border-color: var(--accent-soft); }
+.rt-note { margin-left: auto; font-size: 10px; }
+.rt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.rt-table th { text-align: left; font-weight: 600; color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; padding: 4px 6px; position: sticky; top: 0; background: var(--panel); }
+.rt-table th.r, .rt-table td.r { text-align: right; }
+.rt-table td { padding: 3px 6px; border-top: 1px solid var(--line); }
+.rt-table tr.rt-cur { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.rt-name b { font-weight: 700; }
+.rt-w { width: 38%; }
+.rt-bar-row { display: flex; align-items: center; gap: 6px; }
+.rt-bar { flex: 1; height: 7px; border-radius: 4px; background: var(--line-2); overflow: hidden; }
+.rt-bar-fill { height: 100%; border-radius: 4px; }
+.rt-val { min-width: 22px; text-align: right; font-size: 11px; }
 .tclock-sec { fill: var(--dim); font: 600 10px var(--mono); }
 .tclock-sf-l { fill: var(--fg-dim); font: 700 10px var(--mono); }
 .tclock-lap { fill: var(--fg); font: 800 34px var(--sans); }

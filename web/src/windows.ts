@@ -39,6 +39,7 @@ export const PANELS: PanelDef[] = [
   { id: "weather", title: "Weather", component: "weather", defaultOpen: false },
   { id: "racechart", title: "Race Chart", component: "raceChart", defaultOpen: false },
   { id: "prediction", title: "Prediction", component: "prediction", defaultOpen: false },
+  { id: "ratings", title: "Ratings", component: "ratings", defaultOpen: false },
 ];
 
 const KEY = "pw.windows.v4";
@@ -76,6 +77,7 @@ export function layout(): Record<string, WinRect> {
     weather: { x: rx, y: Math.round(botY + botH * 0.2), w: Math.min(360, clockW), h: Math.round(botH * 0.6) },
     racechart: { x: Math.round(W * 0.18), y: Math.round(g + H * 0.1), w: Math.round(W * 0.5), h: Math.round(H * 0.62) },
     prediction: { x: Math.round(W * 0.28), y: Math.round(g + H * 0.12), w: 380, h: Math.round(H * 0.7) },
+    ratings: { x: Math.round(W * 0.24), y: Math.round(g + H * 0.1), w: Math.round(W * 0.5), h: Math.round(H * 0.72) },
   };
 }
 

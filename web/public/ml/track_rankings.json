@@ -1,0 +1,277 @@
+{
+ "generated": "2026-11-03",
+ "seasons": [
+  2019,
+  2020,
+  2021,
+  2022,
+  2023,
+  2024
+ ],
+ "tracks": [
+  {
+   "id": "interlagos",
+   "name": "Aut\u00f3dromo Jos\u00e9 Carlos Pace",
+   "country": "Brazil",
+   "overtaking": 100.0,
+   "incidents": 87.3,
+   "avgPosChange": 3.74,
+   "avgDnf": 3.4,
+   "attrition": 0.17,
+   "races": 5
+  },
+  {
+   "id": "hungaroring",
+   "name": "Hungaroring",
+   "country": "Hungary",
+   "overtaking": 90.1,
+   "incidents": 36.4,
+   "avgPosChange": 3.55,
+   "avgDnf": 2.0,
+   "attrition": 0.1,
+   "races": 6
+  },
+  {
+   "id": "sochi",
+   "name": "Sochi Autodrom",
+   "country": "Russia",
+   "overtaking": 78.2,
+   "incidents": 60.6,
+   "avgPosChange": 3.32,
+   "avgDnf": 2.67,
+   "attrition": 0.133,
+   "races": 3
+  },
+  {
+   "id": "imola",
+   "name": "Autodromo Enzo e Dino Ferrari",
+   "country": "Italy",
+   "overtaking": 75.4,
+   "incidents": 63.6,
+   "avgPosChange": 3.27,
+   "avgDnf": 2.75,
+   "attrition": 0.138,
+   "races": 4
+  },
+  {
+   "id": "monza",
+   "name": "Autodromo Nazionale di Monza",
+   "country": "Italy",
+   "overtaking": 75.4,
+   "incidents": 78.8,
+   "avgPosChange": 3.27,
+   "avgDnf": 3.17,
+   "attrition": 0.158,
+   "races": 6
+  },
+  {
+   "id": "marina_bay",
+   "name": "Marina Bay Street Circuit",
+   "country": "Singapore",
+   "overtaking": 73.3,
+   "incidents": 90.9,
+   "avgPosChange": 3.23,
+   "avgDnf": 3.5,
+   "attrition": 0.175,
+   "races": 4
+  },
+  {
+   "id": "bahrain",
+   "name": "Bahrain International Circuit",
+   "country": "Bahrain",
+   "overtaking": 72.7,
+   "incidents": 41.6,
+   "avgPosChange": 3.22,
+   "avgDnf": 2.14,
+   "attrition": 0.107,
+   "races": 7
+  },
+  {
+   "id": "americas",
+   "name": "Circuit of the Americas",
+   "country": "USA",
+   "overtaking": 72.2,
+   "incidents": 50.9,
+   "avgPosChange": 3.21,
+   "avgDnf": 2.4,
+   "attrition": 0.12,
+   "races": 5
+  },
+  {
+   "id": "villeneuve",
+   "name": "Circuit Gilles Villeneuve",
+   "country": "Canada",
+   "overtaking": 71.4,
+   "incidents": 72.7,
+   "avgPosChange": 3.19,
+   "avgDnf": 3.0,
+   "attrition": 0.15,
+   "races": 4
+  },
+  {
+   "id": "losail",
+   "name": "Lusail International Circuit",
+   "country": "Qatar",
+   "overtaking": 70.5,
+   "incidents": 84.8,
+   "avgPosChange": 3.18,
+   "avgDnf": 3.33,
+   "attrition": 0.167,
+   "races": 3
+  },
+  {
+   "id": "albert_park",
+   "name": "Albert Park Grand Prix Circuit",
+   "country": "Australia",
+   "overtaking": 69.7,
+   "incidents": 63.6,
+   "avgPosChange": 3.16,
+   "avgDnf": 2.75,
+   "attrition": 0.139,
+   "races": 4
+  },
+  {
+   "id": "baku",
+   "name": "Baku City Circuit",
+   "country": "Azerbaijan",
+   "overtaking": 60.0,
+   "incidents": 72.7,
+   "avgPosChange": 2.98,
+   "avgDnf": 3.0,
+   "attrition": 0.15,
+   "races": 5
+  },
+  {
+   "id": "red_bull_ring",
+   "name": "Red Bull Ring",
+   "country": "Austria",
+   "overtaking": 53.7,
+   "incidents": 40.9,
+   "avgPosChange": 2.85,
+   "avgDnf": 2.12,
+   "attrition": 0.106,
+   "races": 8
+  },
+  {
+   "id": "miami",
+   "name": "Miami International Autodrome",
+   "country": "USA",
+   "overtaking": 53.6,
+   "incidents": 12.1,
+   "avgPosChange": 2.85,
+   "avgDnf": 1.33,
+   "attrition": 0.067,
+   "races": 3
+  },
+  {
+   "id": "rodriguez",
+   "name": "Aut\u00f3dromo Hermanos Rodr\u00edguez",
+   "country": "Mexico",
+   "overtaking": 51.2,
+   "incidents": 43.6,
+   "avgPosChange": 2.81,
+   "avgDnf": 2.2,
+   "attrition": 0.11,
+   "races": 5
+  },
+  {
+   "id": "silverstone",
+   "name": "Silverstone Circuit",
+   "country": "UK",
+   "overtaking": 50.4,
+   "incidents": 62.3,
+   "avgPosChange": 2.79,
+   "avgDnf": 2.71,
+   "attrition": 0.136,
+   "races": 7
+  },
+  {
+   "id": "zandvoort",
+   "name": "Circuit Park Zandvoort",
+   "country": "Netherlands",
+   "overtaking": 42.2,
+   "incidents": 27.3,
+   "avgPosChange": 2.63,
+   "avgDnf": 1.75,
+   "attrition": 0.087,
+   "races": 4
+  },
+  {
+   "id": "jeddah",
+   "name": "Jeddah Corniche Circuit",
+   "country": "Saudi Arabia",
+   "overtaking": 41.8,
+   "incidents": 100.0,
+   "avgPosChange": 2.63,
+   "avgDnf": 3.75,
+   "attrition": 0.188,
+   "races": 4
+  },
+  {
+   "id": "spa",
+   "name": "Circuit de Spa-Francorchamps",
+   "country": "Belgium",
+   "overtaking": 40.4,
+   "incidents": 24.2,
+   "avgPosChange": 2.6,
+   "avgDnf": 1.67,
+   "attrition": 0.083,
+   "races": 6
+  },
+  {
+   "id": "yas_marina",
+   "name": "Yas Marina Circuit",
+   "country": "UAE",
+   "overtaking": 39.1,
+   "incidents": 30.3,
+   "avgPosChange": 2.57,
+   "avgDnf": 1.83,
+   "attrition": 0.092,
+   "races": 6
+  },
+  {
+   "id": "ricard",
+   "name": "Circuit Paul Ricard",
+   "country": "France",
+   "overtaking": 37.4,
+   "incidents": 12.1,
+   "avgPosChange": 2.54,
+   "avgDnf": 1.33,
+   "attrition": 0.067,
+   "races": 3
+  },
+  {
+   "id": "suzuka",
+   "name": "Suzuka Circuit",
+   "country": "Japan",
+   "overtaking": 14.8,
+   "incidents": 81.8,
+   "avgPosChange": 2.11,
+   "avgDnf": 3.25,
+   "attrition": 0.163,
+   "races": 4
+  },
+  {
+   "id": "catalunya",
+   "name": "Circuit de Barcelona-Catalunya",
+   "country": "Spain",
+   "overtaking": 11.9,
+   "incidents": 0.0,
+   "avgPosChange": 2.05,
+   "avgDnf": 1.0,
+   "attrition": 0.05,
+   "races": 6
+  },
+  {
+   "id": "monaco",
+   "name": "Circuit de Monaco",
+   "country": "Monaco",
+   "overtaking": 0.0,
+   "incidents": 43.6,
+   "avgPosChange": 1.83,
+   "avgDnf": 2.2,
+   "attrition": 0.11,
+   "races": 5
+  }
+ ]
+}

@@ -10,6 +10,7 @@ import Prediction from "./Prediction";
 import Commentary from "./Commentary";
 import RaceChart from "./RaceChart";
 import TrackClock from "./TrackClock";
+import Ratings from "./Ratings";
 
 /** Maps a window's `component` name to its React component. */
 export const COMPONENTS: Record<string, ComponentType> = {
@@ -24,4 +25,5 @@ export const COMPONENTS: Record<string, ComponentType> = {
   commentary: Commentary,
   raceChart: RaceChart,
   trackClock: TrackClock,
+  ratings: Ratings,
 };
