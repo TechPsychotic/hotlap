@@ -242,18 +242,25 @@ code locations, approach, and open questions so it can be executed directly.
 
 ## 3. Prediction window (analytics + SLM narrative) — BIG, phase it
 
-New **Prediction** window. Split into a Rust analytics module (deterministic
-math, exposed via REST/WS) + an SLM layer (natural language) + the web panel.
+**DONE (2026-11-03): ML predictive models.** Trained offline in `ml/build_models.py`
+and shipped as JSON (`web/public/ml/{winner,strategy}_model.json`), evaluated in
+`web/src/ml.ts` — no runtime Python/ONNX (see `ml/README.md` for why coefficients
+beat `tract` here). The **Prediction** panel race mode now shows win/podium
+probabilities (trained grid→result curves + rating adjustment, sharpened by race
+progress) and per-driver strategy calls; the **Strategy** panel shows a tyre-loss
+meter + pit window from a one-stop-from-here simulation over learned tyre-deg +
+pit-loss curves. Quali cut-off predictor already existed. Verified in-browser
+against the São Paulo replay (box-now for shot tyres early, run-to-end late).
 
-- **Race podium (P1/P2/P3)**: project finishing order from current positions,
-  recent lap pace, gaps, remaining laps, pit-stop status, tyre age/deg. Simple
-  model first (extrapolate gaps + mandatory stop deltas), refine later.
-- **Quali cut-off (Q1/Q2)**: predict the elimination line (P15 in Q1, P10 in Q2)
-  from current best laps + improvement trend of drivers still on track / yet to
-  set a time. Show predicted cut-off time and who's provisionally out.
-- **Tyre strategy** (extend the Strategy window): predicted optimal strategies,
-  **undercut / overcut** chances per driver pair (gap vs pit-loss vs tyre-deg
-  model + track position). Needs a pit-loss constant per circuit + a deg model.
+Remaining in this section:
+
+- **Race podium (P1/P2/P3)**: ✅ win/podium probabilities now model-based.
+  *Future:* lap-by-lap mid-race training for a fit (not chosen) progress term.
+- **Quali cut-off (Q1/Q2)**: ✅ segment inference + cut line + SAFE/DANGER/OUT.
+- **Tyre strategy**: ✅ pit-window + undercut from learned deg + per-circuit pit
+  loss. *Future:* fit fresh-compound offsets properly (currently a prior); model
+  the field's response to a stop so the call prices in track position, not just
+  pace.
 - **Natural-language predictions via a small LM (SLM)**: feed the structured
   predictions + race state into an SLM to produce readable summaries, including
   **edge cases: weather change, SC, VSC**. 

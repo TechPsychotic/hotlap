@@ -1,0 +1,50 @@
+{
+ "generated": "2026-11-03",
+ "openf1Years": [
+  2023,
+  2024
+ ],
+ "sessions": 15,
+ "tyreDeg": {
+  "SOFT": {
+   "a1": 0.04838,
+   "a2": 0.003137,
+   "maxAge": 17,
+   "n": 1150
+  },
+  "MEDIUM": {
+   "a1": 0.00155,
+   "a2": 0.000899,
+   "maxAge": 28,
+   "n": 3545
+  },
+  "HARD": {
+   "a1": 0.0412,
+   "a2": -0.00056,
+   "maxAge": 40,
+   "n": 7316
+  },
+  "INTERMEDIATE": {
+   "a1": 0.21998,
+   "a2": -0.015272,
+   "maxAge": 24,
+   "n": 130
+  }
+ },
+ "compoundOffset": {
+  "SOFT": 0.0,
+  "MEDIUM": 0.5,
+  "HARD": 1.0,
+  "INTERMEDIATE": 8.0,
+  "WET": 12.0
+ },
+ "pitLossByCircuit": {
+  "Sakhir": 24.8,
+  "Jeddah": 22.1,
+  "Melbourne": 17.9,
+  "Suzuka": 23.3,
+  "Shanghai": 22.9,
+  "Miami": 22.4
+ },
+ "pitLossDefault": 22.9
+}

@@ -556,6 +556,16 @@ button, select, .cmp-chip, .cmp-add {
 .strat-cur { font-size: 11px; font-weight: 700; border: 1px solid; border-radius: 4px; padding: 0 5px; line-height: 16px; }
 .strat-pit { font-size: 11px; color: var(--cyan); }
 
+/* Learned strategy call: tyre-loss meter + pit recommendation badge. */
+.strat-call { display: flex; align-items: center; gap: 7px; margin-left: 8px; flex: none; width: 108px; justify-content: flex-end; }
+.strat-loss { position: relative; width: 44px; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; flex: none; }
+.strat-loss-fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px;
+  background: linear-gradient(90deg, var(--green), var(--yellow) 55%, var(--accent)); }
+.strat-rec { font-size: 10px; font-weight: 700; letter-spacing: .3px; border-radius: 4px; padding: 1px 5px; line-height: 15px; white-space: nowrap; }
+.strat-rec.box { color: #fff; background: color-mix(in srgb, var(--accent) 80%, transparent); }
+.strat-rec.soon { color: var(--yellow); border: 1px solid color-mix(in srgb, var(--yellow) 55%, transparent); }
+.strat-rec.hold { color: var(--dim); border: 1px solid var(--line); }
+
 /* Weather sparklines */
 .wx-sparks { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 .wx-spark-h { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; }
